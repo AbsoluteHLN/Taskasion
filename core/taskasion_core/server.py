@@ -15,7 +15,7 @@ from .audit import Audit
 from .goals import GoalStore
 from .store import TaskStore
 
-VERSION = "0.1.0"
+VERSION = "1.0.1-aStart"
 
 
 def default_data_dir() -> Path:
