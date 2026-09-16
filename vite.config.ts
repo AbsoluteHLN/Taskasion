@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import path from "node:path";
 import fs from "node:fs";
 
-// HLN ui-system v2.3(Industrial-Tactical Vector)独立引擎:本机存在引擎仓库时直连其
+// HLN ui-system v2.3 独立引擎:本机存在引擎仓库时直连其
 // dist(引擎改动即时生效),否则回退到仓库内 vendor/ 快照,保证克隆即可构建。
 const engineDist = "E:/projectHLN/ui-system/v2.3/dist";
 const hlnDist = fs.existsSync(engineDist)

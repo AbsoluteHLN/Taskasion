@@ -1,6 +1,5 @@
 /* ============================================================
    Taskasion 悬浮窗 — ProjectHLN UI System v2.3
-   (Industrial-Tactical Vector Edition · arknights theme)
    引擎来自 @hln-ui/hln-ui-system-v2.3.css(main.tsx 先加载);
    本文件只做 320×440 悬浮窗布局与微调,颜色/字体/几何全部取 HLN 令牌。
    ============================================================ */
@@ -27,7 +26,7 @@ body,
   background: transparent;
 }
 
-/* ---------- 半透明玻璃:下调 arknights 玻璃令牌,桌面透出 ---------- */
+/* ---------- 半透明玻璃:下调 HLN 玻璃令牌,桌面透出 ---------- */
 .app[data-hln-theme="arknights"] {
   --hln-ui-glass: rgb(11 16 22 / 68%);
   --hln-ui-panel-bg: rgb(11 16 22 / 68%);

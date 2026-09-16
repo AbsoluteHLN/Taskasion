@@ -6,7 +6,7 @@
 ┌─ Tauri 2 壳(src-tauri, Rust)─────────────┐
 │  透明/无边框/置顶/不可手动拉伸;折叠时窗口收缩为迷你条 │
 │  面板半透明玻璃(HLN 玻璃令牌降 alpha,根背景放穿)  │
-│  应用图标 = 托盘图标(icons/icon.ico,HLN arknights 风格) │
+│  应用图标 = 托盘图标(icons/icon.ico,HLN 引擎风格) │
 │  系统托盘:左键显示/隐藏;右键菜单 显示/隐藏+退出 │
 │  Ctrl+Shift+Space 全局显示/隐藏;头部 ✕ 隐藏到托盘   │
 │  WebView(React/TS) ──fetch──► Core REST  │
@@ -97,7 +97,12 @@ Agent 侧接入:Claude Code / Codex 配置 `command=python, args=-m taskasion_co
 
 ## 前端 UI(HLN ui-system v2.3)
 
-Web 端接入 HLN ui-system v2.3 设计系统(Industrial-Tactical Vector / arknights 主题;快照内置 `vendor/hln-ui-system-v2.3/`,本机存在引擎仓库时 Vite alias `@hln-ui` 直连该引擎的 `dist`):`main.tsx` 最先 import 其自包含 CSS,再加载业务样式。`App.tsx` 根节点挂 `data-hln-ui-root`/`data-hln-ui-version="v2.3"`/`data-hln-theme="arknights"`/`data-hln-font="display"`(HLN root 默认铺不透明 bg-0,styles.css 强制 `.app[data-hln-ui-root]{background:transparent}` 放穿以实现半透明玻璃;玻璃 alpha 在 `.app` 作用域覆盖 `--hln-ui-glass`/`--hln-ui-glass-strong`),控件用 `[data-hln-ui-control]`(primary/chamfer)、`[data-hln-ui-field]`、`[data-hln-ui-bar]`、`[data-hln-ui-scroll]`、`.segmented`、`.tactical-meter`;条目/面板入场用 `data-hln-motion`(item=data-stream 错峰,panel=tactical-lock);主面板与折叠迷你条均用 `data-hln-ui-no-ornament` 关闭 HLN 角饰。`styles.css` 只用 HLN token/变量做布局,不再自带配色常量。
+Web 端接入 HLN ui-system v2.3 设计系统(作者自研引擎;构建产物快照内置 `vendor/hln-ui-system-v2.3/`,本机存在引擎仓库时 Vite alias `@hln-ui` 直连该引擎的 `dist`):
+
+- `main.tsx` 最先 import 引擎自包含 CSS,再加载业务样式。
+- `App.tsx` 根节点挂 `data-hln-ui-root` / `data-hln-ui-version="v2.3"` / `data-hln-theme`(主题键)/ `data-hln-font="display"`。HLN root 默认铺不透明 bg-0,`styles.css` 强制 `.app[data-hln-ui-root]{background:transparent}` 放穿以实现半透明玻璃;玻璃 alpha 在 `.app` 作用域覆盖 `--hln-ui-glass` / `--hln-ui-glass-strong`。
+- 控件用 `[data-hln-ui-control]`(primary/chamfer)、`[data-hln-ui-field]`、`[data-hln-ui-bar]`、`[data-hln-ui-scroll]`、`.segmented`、`.tactical-meter`;条目/面板入场用 `data-hln-motion`(item=data-stream 错峰,panel=tactical-lock);主面板与折叠迷你条均用 `data-hln-ui-no-ornament` 关闭 HLN 角饰。
+- `styles.css` 只用 HLN token/变量做布局,不自带配色常量。
 
 ## 路线图
 
