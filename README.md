@@ -7,6 +7,7 @@ Taskasion 是一个置顶悬浮的 todo / goal 小组件，**本地优先**：�
 ## 特性
 
 - **悬浮即用**：透明无边框、始终置顶、可折叠为迷你条、`Ctrl+Shift+Space` 全局唤起、系统托盘。
+- **轻量便携**：壳仅约 3.1 MB；绿色便携版免安装、无注册表，解压即用（含精简 Python 3.13 运行时，解压约 33 MB、压缩包约 11.4 MB），删除文件夹即完全卸载，数据随目录拷走。
 - **todo.md 是唯一真相源**：单文件 Markdown，零门槛；任何编辑器、脚本、Agent 都能直接改，外部修改即时生效。
 - **AI Agent 原生**：内置 MCP server（stdio，10 个工具），Claude Code / Codex 接上即管（需可选依赖 `pip install "mcp>=1.2"`）；也可走本地 REST，`X-Taskasion-Actor` 头标识"谁在操作"。
 - **目标（Goal）**：目标下挂任务，自动聚合进度。

@@ -1,6 +1,6 @@
 [project]
 name = "taskasion-core"
-version = "0.1.0"
+version = "1.0.1-aStart"
 description = "Taskasion core: local-first task store + REST + MCP server + agent audit"
 requires-python = ">=3.10"
 dependencies = []
