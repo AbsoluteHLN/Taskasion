@@ -256,9 +256,10 @@ body,
 }
 
 .check {
-  min-width: 15px;
-  width: 15px;
-  height: 15px;
+  /* 16px:150% DPI 下恰为 24 物理像素整,避免 15px(22.5) 舍入成 23×24 的非正方形 */
+  min-width: 16px;
+  width: 16px;
+  height: 16px;
   flex: none;
   display: inline-flex;
   align-items: center;

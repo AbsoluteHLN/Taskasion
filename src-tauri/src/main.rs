@@ -51,8 +51,15 @@ fn spawn_core_if_free(app: &tauri::AppHandle) {
     app.manage(Mutex::new(child));
 }
 
+// 头部 ✕ = 退出整个 Taskasion(壳 + core);RunEvent::Exit 统一回收 core 子进程
+#[tauri::command]
+fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}
+
 fn main() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![quit_app])
         .plugin(
             ShortcutBuilder::new()
                 .with_shortcuts(["ctrl+shift+space"])

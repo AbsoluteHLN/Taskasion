@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import {
   addGoal,
@@ -370,10 +371,10 @@ export default function App() {
           <span className="count">{offline ? "OFFLINE" : `${pendingCount} 项`}</span>
           <button
             className="icon-btn"
-            title="隐藏到托盘"
+            title="退出 Taskasion（含后台）"
             onClick={(e) => {
               e.stopPropagation(); // 不触发迷你条短按展开
-              getCurrentWindow().hide();
+              invoke("quit_app");
             }}
           >
             ✕
@@ -414,7 +415,7 @@ export default function App() {
           </span>
           <span className="spacer" />
           {offline && <span className="offline">OFFLINE</span>}
-          <button className="icon-btn" title="隐藏到托盘" onClick={() => getCurrentWindow().hide()}>
+          <button className="icon-btn" title="退出 Taskasion（含后台）" onClick={() => invoke("quit_app")}>
             ✕
           </button>
         </header>

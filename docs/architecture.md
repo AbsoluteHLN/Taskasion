@@ -8,7 +8,7 @@
 │  面板半透明玻璃(HLN 玻璃令牌降 alpha,根背景放穿)  │
 │  应用图标 = 托盘图标(icons/icon.ico,HLN 引擎风格) │
 │  系统托盘:左键显示/隐藏;右键菜单 显示/隐藏+退出 │
-│  Ctrl+Shift+Space 全局显示/隐藏;头部 ✕ 隐藏到托盘   │
+│  Ctrl+Shift+Space 全局显示/隐藏;头部 ✕ 退出(壳+core 一起退)  │
 │  WebView(React/TS) ──fetch──► Core REST  │
 └───────────────────────────────────────────┘
 ┌─ taskasion-core(core/, Python)────────────┐
