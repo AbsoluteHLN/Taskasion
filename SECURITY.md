@@ -1,21 +1,30 @@
-# Security Policy
+# Security Policy(安全策略)
 
-## Supported Versions
+## 受支持的版本
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+| 版本  | 受支持             |
+| ----- | ------------------ |
+| 0.1.x | :white_check_mark: |
+| < 0.1 | :x:                |
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## 报告漏洞
 
-## Reporting a Vulnerability
+请使用 GitHub 的私密漏洞报告(仓库 **Security** 标签页 → **Report a vulnerability**),
+不要在公开 issue 中描述可被利用的细节。
 
-Use this section to tell people how to report a vulnerability.
+### 背景与范围
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Taskasion 是本地优先的桌面工具:Core 只监听 `127.0.0.1`,不主动联网;所有数据仅存于本地目录(`todo.md` / `goals.md` / `audit.jsonl`)。
+
+当前版本特别关注的方向:
+
+- 本机 REST API(`127.0.0.1:14411`)被浏览器内第三方页面跨源访问(CSRF / DNS rebinding 类问题);
+- `todo.md` / `goals.md` 解析鲁棒性(恶意构造的元数据注释、异常编码);
+- 便携版子进程管理与数据目录处理(路径注入、权限)。
+
+### 报告内容
+
+请附:复现步骤、影响面、运行环境(操作系统 / Python 版本)。
+
+- 通常在 72 小时内确认收到;
+- 修复会随下一个版本发布,并在 Release 说明中致谢(除非你希望匿名)。
