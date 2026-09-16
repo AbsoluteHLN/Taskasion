@@ -1,0 +1,32 @@
+[package]
+name = "taskasion"
+version = "0.1.0"
+description = "Taskasion: floating task widget with agent management"
+license = "MIT"
+edition = "2021"
+rust-version = "1.85"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+# 直接 cargo build --release 时也必须内嵌 dist 而不是加载 devUrl,
+# 否则没有 vite dev server 在跑就会报“localhost 拒绝连接”。
+custom-protocol = ["tauri/custom-protocol"]
+default = ["custom-protocol"]
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-global-shortcut = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

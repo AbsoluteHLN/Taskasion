@@ -1,0 +1,263 @@
+/* ProjectHLN UI System v2.3 - Industrial Tactical Vector Themes (Curated from v2) */
+
+/* ==========================================================================
+   1. ARKNIGHTS - Rhodes Island Tactical Terminal (Canonical Primary)
+   ========================================================================== */
+:root[data-hln-theme="arknights"],
+[data-hln-theme="arknights"],
+[data-theme="arknights"] {
+  --hln-ui-bg-0: #0a0e13;
+  --hln-ui-bg-1: #131920;
+  --hln-ui-bg-2: #1b242e;
+  --hln-ui-glass: rgb(19 25 32 / 88%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(27 36 46 / 94%);
+  --hln-ui-glass-soft: rgb(27 36 46 / 52%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 15%);
+  --hln-ui-line: #2d3d4e;
+  --hln-ui-line-strong: #00e5ff;
+  --hln-ui-text: #f3f6f9;
+  --hln-ui-text-muted: #8ea4ba;
+  --hln-ui-text-faint: #5a7086;
+  --hln-ui-accent: #00e5ff;
+  --hln-ui-accent-strong: #a4f4ff;
+  --hln-ui-accent-cool: #3a86ff;
+  --hln-ui-amber: #f6d000;
+  --hln-ui-danger: #ff2a55;
+  --hln-ui-success: #00f090;
+  --hln-ui-focus: #00e5ff;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 12px 32px rgb(0 0 0 / 80%), 0 0 1px var(--hln-ui-accent);
+  --hln-ui-shadow-soft: 0 4px 14px rgb(0 0 0 / 55%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 12%), inset 0 0 0 1px rgb(0 229 255 / 18%);
+  --hln-ui-button-shadow: 0 0 14px color-mix(in srgb, var(--hln-ui-accent) 26%, transparent);
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(0 229 255 / 4%) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgb(0 229 255 / 4%) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(180deg, #10161d 0%, #080b0f 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #00e5ff 16%, transparent);
+  --hln-ui-tactical-corner: #00e5ff;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   2. ENDFIELD - Heavy Industrial Vector Terminal
+   ========================================================================== */
+:root[data-hln-theme="endfield"],
+[data-hln-theme="endfield"],
+[data-theme="endfield"] {
+  --hln-ui-bg-0: #0a0f12;
+  --hln-ui-bg-1: #121c22;
+  --hln-ui-bg-2: #1b2830;
+  --hln-ui-glass: rgb(18 28 34 / 90%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(27 40 48 / 95%);
+  --hln-ui-glass-soft: rgb(27 40 48 / 50%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 18%);
+  --hln-ui-line: #334854;
+  --hln-ui-line-strong: #f6d000;
+  --hln-ui-text: #f5f8fa;
+  --hln-ui-text-muted: #8faab8;
+  --hln-ui-text-faint: #597482;
+  --hln-ui-accent: #f6d000;
+  --hln-ui-accent-strong: #fff176;
+  --hln-ui-accent-cool: #00f0ff;
+  --hln-ui-amber: #f6d000;
+  --hln-ui-danger: #ff334b;
+  --hln-ui-success: #00e676;
+  --hln-ui-focus: #f6d000;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 10px;
+  --hln-ui-shadow: 0 10px 30px rgb(0 0 0 / 80%), 0 0 1px var(--hln-ui-accent);
+  --hln-ui-shadow-soft: 0 4px 12px rgb(0 0 0 / 50%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 0 0 1px rgb(246 208 0 / 22%);
+  --hln-ui-button-shadow: 0 0 14px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent);
+  --hln-ui-bg-image:
+    linear-gradient(135deg, transparent 0 47.5%, rgb(246 208 0 / 6%) 48% 52%, transparent 52.5% 100%) 0 0 / 36px 36px,
+    linear-gradient(180deg, #111a20 0%, #070a0d 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #f6d000 18%, transparent);
+  --hln-ui-tactical-corner: #f6d000;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   3. BLACKSTEEL - Worldwide Tactical PMC (Carbon, Orange Hazard)
+   ========================================================================== */
+:root[data-hln-theme="blacksteel"],
+[data-hln-theme="blacksteel"],
+[data-theme="blacksteel"] {
+  --hln-ui-bg-0: #0a0a0c;
+  --hln-ui-bg-1: #141418;
+  --hln-ui-bg-2: #1e1e24;
+  --hln-ui-glass: rgb(20 20 24 / 92%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(30 30 36 / 96%);
+  --hln-ui-glass-soft: rgb(30 30 36 / 55%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 15%);
+  --hln-ui-line: #383844;
+  --hln-ui-line-strong: #ff9100;
+  --hln-ui-text: #f4f4f6;
+  --hln-ui-text-muted: #9c9ca8;
+  --hln-ui-text-faint: #646472;
+  --hln-ui-accent: #ff9100;
+  --hln-ui-accent-strong: #ffb74d;
+  --hln-ui-accent-cool: #29b6f6;
+  --hln-ui-amber: #ff9100;
+  --hln-ui-danger: #ff3d00;
+  --hln-ui-success: #00e676;
+  --hln-ui-focus: #ff9100;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 10px;
+  --hln-ui-shadow: 0 10px 30px rgb(0 0 0 / 85%), 0 0 1px var(--hln-ui-accent);
+  --hln-ui-shadow-soft: 0 4px 12px rgb(0 0 0 / 55%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 12%), inset 0 0 0 1px rgb(255 145 0 / 22%);
+  --hln-ui-button-shadow: 0 0 14px color-mix(in srgb, var(--hln-ui-accent) 28%, transparent);
+  --hln-ui-bg-image:
+    linear-gradient(45deg, transparent 0 48%, rgb(255 145 0 / 5%) 48.5% 51.5%, transparent 52% 100%) 0 0 / 24px 24px,
+    linear-gradient(180deg, #111115 0%, #060608 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #ff9100 18%, transparent);
+  --hln-ui-tactical-corner: #ff9100;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   4. ABYSS AEGIR - Deep Sub-surface Sonar and Bioluminescent Tech
+   ========================================================================== */
+:root[data-hln-theme="abyss-aegir"],
+[data-hln-theme="abyss-aegir"],
+[data-theme="abyss-aegir"] {
+  --hln-ui-bg-0: #040e16;
+  --hln-ui-bg-1: #091a28;
+  --hln-ui-bg-2: #0f273b;
+  --hln-ui-glass: rgb(9 26 40 / 88%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(15 39 60 / 95%);
+  --hln-ui-glass-soft: rgb(15 39 60 / 52%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 22%);
+  --hln-ui-line: #1b3d5b;
+  --hln-ui-line-strong: #00ffd5;
+  --hln-ui-text: #f0fdfc;
+  --hln-ui-text-muted: #7aa5c2;
+  --hln-ui-text-faint: #4e738f;
+  --hln-ui-accent: #00ffd5;
+  --hln-ui-accent-strong: #a4fff1;
+  --hln-ui-accent-cool: #00aaff;
+  --hln-ui-amber: #f8c858;
+  --hln-ui-danger: #ff4757;
+  --hln-ui-success: #00ffd5;
+  --hln-ui-focus: #00ffd5;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 16px;
+  --hln-ui-shadow: 0 12px 36px rgb(0 0 0 / 85%), 0 0 20px rgb(0 255 213 / 14%);
+  --hln-ui-shadow-soft: 0 4px 14px rgb(0 0 0 / 60%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 18%), inset 0 0 0 1px rgb(0 255 213 / 20%);
+  --hln-ui-button-shadow: 0 0 14px rgb(0 255 213 / 25%);
+  --hln-ui-bg-image:
+    radial-gradient(circle at 20% 20%, rgb(0 255 213 / 10%) 0%, transparent 45%),
+    radial-gradient(circle at 80% 80%, rgb(0 170 255 / 8%) 0%, transparent 50%),
+    linear-gradient(180deg, #071522 0%, #03080f 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #00ffd5 18%, transparent);
+  --hln-ui-tactical-corner: #00ffd5;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   5. BABEL - Archaeological Deep Void Cyber Core
+   ========================================================================== */
+:root[data-hln-theme="babel"],
+[data-hln-theme="babel"],
+[data-theme="babel"] {
+  --hln-ui-bg-0: #08060f;
+  --hln-ui-bg-1: #120e20;
+  --hln-ui-bg-2: #1b162f;
+  --hln-ui-glass: rgb(18 14 32 / 90%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(27 22 47 / 95%);
+  --hln-ui-glass-soft: rgb(27 22 47 / 52%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 20%);
+  --hln-ui-line: #322852;
+  --hln-ui-line-strong: #a855f7;
+  --hln-ui-text: #f7f5ff;
+  --hln-ui-text-muted: #9e93c2;
+  --hln-ui-text-faint: #695e8e;
+  --hln-ui-accent: #a855f7;
+  --hln-ui-accent-strong: #d8b4fe;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-amber: #fbbf24;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #34d399;
+  --hln-ui-focus: #a855f7;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 16px;
+  --hln-ui-shadow: 0 12px 36px rgb(0 0 0 / 85%), 0 0 20px rgb(168 85 247 / 15%);
+  --hln-ui-shadow-soft: 0 4px 14px rgb(0 0 0 / 55%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 16%), inset 0 0 0 1px rgb(168 85 247 / 22%);
+  --hln-ui-button-shadow: 0 0 14px rgb(168 85 247 / 30%);
+  --hln-ui-bg-image:
+    radial-gradient(circle at 80% 20%, rgb(168 85 247 / 12%) 0%, transparent 50%),
+    radial-gradient(circle at 20% 80%, rgb(56 189 248 / 8%) 0%, transparent 45%),
+    linear-gradient(180deg, #0e0a1b 0%, #05040a 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #a855f7 18%, transparent);
+  --hln-ui-tactical-corner: #a855f7;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   6. MONSTER SIREN - Acid Cyber Industrial & High-Freq Soundwave
+   ========================================================================== */
+:root[data-hln-theme="monster-siren"],
+[data-hln-theme="monster-siren"],
+[data-theme="monster-siren"] {
+  --hln-ui-bg-0: #050505;
+  --hln-ui-bg-1: #0f0f12;
+  --hln-ui-bg-2: #18181c;
+  --hln-ui-glass: rgb(15 15 18 / 92%);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-glass-strong: rgb(24 24 28 / 96%);
+  --hln-ui-glass-soft: rgb(24 24 28 / 50%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 18%);
+  --hln-ui-line: #2e2e38;
+  --hln-ui-line-strong: #00ff66;
+  --hln-ui-text: #f0f0f5;
+  --hln-ui-text-muted: #8c8c9e;
+  --hln-ui-text-faint: #565668;
+  --hln-ui-accent: #00ff66;
+  --hln-ui-accent-strong: #b3ffcc;
+  --hln-ui-accent-cool: #00e5ff;
+  --hln-ui-amber: #ffdd00;
+  --hln-ui-danger: #ff0055;
+  --hln-ui-success: #00ff66;
+  --hln-ui-focus: #00ff66;
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 12px 32px rgb(0 0 0 / 90%), 0 0 20px rgb(0 255 102 / 12%);
+  --hln-ui-shadow-soft: 0 4px 14px rgb(0 0 0 / 60%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 15%), inset 0 0 0 1px rgb(0 255 102 / 20%);
+  --hln-ui-button-shadow: 0 0 14px rgb(0 255 102 / 26%);
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(0 255 102 / 4%) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(0deg, rgb(0 255 102 / 4%) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(180deg, #0a0a0d 0%, #030304 100%);
+  --hln-ui-grid-line: color-mix(in srgb, #00ff66 16%, transparent);
+  --hln-ui-tactical-corner: #00ff66;
+  color-scheme: dark;
+}

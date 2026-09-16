@@ -1,0 +1,10 @@
+# 编译产物保持在项目内 build/(相对 .cargo 所在目录解析),exe 位于 build/cargo-target/release/。
+[build]
+target-dir = "../build/cargo-target"
+incremental = false
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0

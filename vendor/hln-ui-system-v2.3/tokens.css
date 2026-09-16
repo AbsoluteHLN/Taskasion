@@ -1,0 +1,138 @@
+/* ProjectHLN UI System v2.3 - Design Tokens (Industrial-Tactical Vector Edition)
+   Contracts with the same --hln-ui-* semantic tokens as v1 while adding:
+   - Precision Vector HUD tokens (--hln-ui-vector-*)
+   - Technical Monospace & Cyberpunk Typography Tokens
+   - Tactical Industrial Status Colors & Coordinates
+   Source of truth: ui-system/v2.3/src. Generated copy: ui-system/v2.3/dist. */
+
+:root {
+  /* ==========================================================================
+     Typography Stacks (Display, Technical, Neo-Grotesque, Cyber Mono)
+     ========================================================================== */
+  --hln-ui-font-display: "DIN Alternate", "Bahnschrift", "Segoe UI Variable Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-title: "Bahnschrift", "Segoe UI Variable Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-form: var(--hln-ui-font-body);
+  --hln-ui-font-classic: "Book Antiqua", "Georgia", "Source Han Serif SC", "Songti SC", serif;
+  --hln-ui-font-berlin: "Berlin Sans BF", "Segoe UI Variable", sans-serif;
+  --hln-ui-font-technical: "Cascadia Code", "JetBrains Mono", "SF Mono", Consolas, monospace;
+  --hln-ui-font-vector: "DIN Alternate", "Bahnschrift", Consolas, monospace;
+  --hln-ui-font-neo-grotesque: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-cyber-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", "Sarasa Mono SC", "PingFang SC", monospace;
+  --hln-ui-font-condensed: "Impact", "Arial Narrow", "Bahnschrift SemiCondensed", "PingFang SC", "Microsoft YaHei", sans-serif;
+
+  /* Default deterministic fallback palette (Flat Tactical) */
+  --hln-ui-bg-0: #0a0d10;
+  --hln-ui-bg-1: #12171c;
+  --hln-ui-bg-2: #1a222a;
+  --hln-ui-glass: rgb(18 23 28 / 90%);
+  --hln-ui-glass-strong: rgb(24 32 40 / 95%);
+  --hln-ui-glass-soft: rgb(24 32 40 / 55%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 16%);
+  --hln-ui-line: #2b3642;
+  --hln-ui-line-strong: #00e5ff;
+  --hln-ui-text: #f0f4f8;
+  --hln-ui-text-muted: #8b9baa;
+  --hln-ui-text-faint: #566778;
+  --hln-ui-accent: #00e5ff;
+  --hln-ui-accent-strong: #a4f4ff;
+  --hln-ui-accent-cool: #3a86ff;
+  --hln-ui-amber: #f6d000;
+  --hln-ui-danger: #ff2a55;
+  --hln-ui-success: #00f090;
+  --hln-ui-focus: #00e5ff;
+
+  /* Geometry & Vector Radii: Industrial sharp & Chamfer specs */
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-border: 1px;
+  --hln-ui-blur: 10px;
+  --hln-ui-shadow: 0 10px 30px rgb(0 0 0 / 75%), 0 0 1px var(--hln-ui-accent);
+  --hln-ui-shadow-soft: 0 4px 12px rgb(0 0 0 / 50%);
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 14%), inset 0 0 0 1px color-mix(in srgb, var(--hln-ui-accent) 20%, transparent);
+  --hln-ui-button-shadow: 0 0 12px color-mix(in srgb, var(--hln-ui-accent) 25%, transparent);
+  --hln-ui-shell-border: 1px solid var(--hln-ui-line);
+  --hln-ui-panel-bg: var(--hln-ui-glass);
+  --hln-ui-button-border: 1px solid var(--hln-ui-line);
+  --hln-ui-bg-image: linear-gradient(180deg, #0f141a 0%, #080a0d 100%);
+  --hln-ui-grid-line: color-mix(in srgb, var(--hln-ui-accent) 15%, transparent);
+
+  /* Spacing Grid (4px Matrix Scale) */
+  --hln-ui-space-1: 4px;
+  --hln-ui-space-2: 8px;
+  --hln-ui-space-3: 12px;
+  --hln-ui-space-4: 16px;
+  --hln-ui-space-5: 20px;
+  --hln-ui-space-6: 24px;
+  --hln-ui-space-7: 28px;
+  --hln-ui-space-8: 32px;
+
+  /* Layout dimensions */
+  --hln-ui-topbar-height: 52px;
+  --hln-ui-drawer-width: min(360px, calc(100vw - 24px));
+  --hln-ui-panel-gap: 10px;
+  --hln-ui-content-gutter: clamp(12px, 2vw, 24px);
+  --hln-ui-focus-offset: 2px;
+  --hln-ui-focus-ring: 0 0 0 1px var(--hln-ui-bg-0), 0 0 0 3px var(--hln-ui-accent);
+
+  /* Motion & Kinetics */
+  --hln-ui-duration-fast: 140ms;
+  --hln-ui-duration-standard: 200ms;
+  --hln-ui-duration-slow: 260ms;
+  --hln-ui-motion-stagger: 20ms;
+  --hln-ui-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hln-ui-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --hln-ui-ease-spring: cubic-bezier(0.34, 1.25, 0.64, 1);
+
+  /* Tactical Micro Scrollbar */
+  --hln-ui-scrollbar-size: 6px;
+  --hln-ui-scrollbar-thumb: var(--hln-ui-accent);
+  --hln-ui-scrollbar-thumb-hover: var(--hln-ui-accent-strong);
+  --hln-ui-resize-hit-size: 14px;
+
+  /* Vector Visual Tokens (HyperGryph Tactical Elements) */
+  --hln-ui-vector-hazard-stripe: repeating-linear-gradient(
+    -45deg,
+    var(--hln-ui-amber, #f6d000) 0px,
+    var(--hln-ui-amber, #f6d000) 8px,
+    #000000 8px,
+    #000000 16px
+  );
+  --hln-ui-vector-crosshair-size: 10px;
+  --hln-ui-vector-hud-bracket-size: 10px;
+}
+
+[data-hln-ui-root],
+[data-hln-ui-root] * {
+  box-sizing: border-box;
+}
+
+[data-hln-ui-root] {
+  min-width: 0;
+  min-height: 0;
+  color: var(--hln-ui-text);
+  background: var(--hln-ui-bg-image), var(--hln-ui-bg-0);
+  font-family: var(--hln-ui-font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  letter-spacing: 0.02em;
+  text-rendering: optimizeLegibility;
+}
+
+[data-hln-ui-root] :where(button, input, textarea, select, a, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: var(--hln-ui-focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hln-ui-root] *,
+  [data-hln-ui-root] *::before,
+  [data-hln-ui-root] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
