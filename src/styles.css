@@ -31,6 +31,9 @@ body,
   --hln-ui-glass: rgb(11 16 22 / 68%);
   --hln-ui-panel-bg: rgb(11 16 22 / 68%);
   --hln-ui-glass-strong: rgb(17 24 32 / 80%);
+  /* 引擎默认 0 10px 30px/50% 的投影远超窗体 6px 透明边距,会被硬切成一圈怪异的黑边;
+     收紧为贴地小阴影,完整落在透明边距内(150% DPI 下无可见截断) */
+  --hln-ui-shadow: 0 2px 9px rgb(0 0 0 / 32%);
 }
 
 /* 背景动画层(tactical-grid 点阵漂移)限制在面板足迹内,不污染桌面边距 */
@@ -127,6 +130,34 @@ body,
   color: var(--hln-ui-accent);
   border-color: var(--hln-ui-line);
   background: color-mix(in srgb, var(--hln-ui-accent) 10%, transparent);
+}
+
+/* 头部更新控件:available 高亮可点,downloading 不可点,latest/error 为短暂提示 */
+.upd-btn[data-upd-state="available"] {
+  color: var(--hln-ui-accent);
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 45%, transparent);
+  animation: upd-pulse 1.6s ease-in-out infinite;
+}
+.upd-btn[data-upd-state="downloading"] {
+  color: var(--hln-ui-accent);
+  cursor: default;
+}
+.upd-btn[data-upd-state="error"] {
+  color: var(--hln-ui-danger);
+}
+.upd-btn[data-upd-state="latest"] {
+  color: var(--hln-ui-ok, var(--hln-ui-accent));
+  cursor: default;
+}
+
+@keyframes upd-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 /* ---------- 视图切换(战术分段矩阵) ---------- */
@@ -241,7 +272,8 @@ body,
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 5px;
+  column-gap: 5px;
+  row-gap: 0; /* 行距由备注行自己的 padding 提供:空隙留在收起区内,不把正文顶离居中 */
   padding: 6px 8px;
   border: 1px solid transparent;
   border-left: 2px solid var(--hln-ui-line);
@@ -256,7 +288,8 @@ body,
 }
 
 .check {
-  /* 16px:150% DPI 下恰为 24 物理像素整,避免 15px(22.5) 舍入成 23×24 的非正方形 */
+  /* 16px:150% DPI 下恰为 24 物理像素整,避免 15px(22.5) 舍入成 23×24 的非正方形;
+     2px 边框(150% 下 3 物理像素整)加粗到与文字笔画相称 */
   min-width: 16px;
   width: 16px;
   height: 16px;
@@ -266,7 +299,7 @@ body,
   justify-content: center;
   padding: 0;
   background: transparent;
-  border: 1px solid var(--hln-ui-line-strong);
+  border: 2px solid var(--hln-ui-line-strong);
   color: transparent;
   font-size: 9px;
   line-height: 1;
@@ -291,6 +324,8 @@ body,
   flex: 1 1 0; /* basis 0:行内放不下时标题收缩补位,元信息不换行 */
   min-width: 0;
   font-size: 12.5px;
+  /* CJK 字形在行盒内天然偏上:实测中心比勾选框高 2 物理像素(150% DPI),下移 1px 找齐 */
+  transform: translateY(1px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -301,14 +336,34 @@ li.done .title {
   text-decoration: line-through;
 }
 
-/* 条目备注:整行折行显示,"//" 技术注释前缀 */
-.note-line {
+/* 条目备注:默认收起,悬停条目时向下展开(grid 0fr→1fr 高度过渡,WebView2/Chromium 支持) */
+.note-wrap {
   flex: 1 1 100%;
+  display: grid;
+  grid-template-rows: 0fr;
+  /* 与正文的间距必须用展开态的 margin,不能放在行内 padding 里:
+     padding 计入 0fr 轨道的 min-content,收起会残留 5px 使行偏高、内容顶离垂直居中 */
+  margin-top: 0;
+  overflow: hidden; /* 收起时把子项内容一并裁掉,行高完全归零 */
+  transition:
+    grid-template-rows var(--hln-ui-duration-fast, 180ms) ease,
+    margin-top var(--hln-ui-duration-fast, 180ms) ease;
+}
+
+li.task-row:hover .note-wrap,
+li.task-row:focus-within .note-wrap {
+  grid-template-rows: 1fr;
+  margin-top: 5px;
+}
+
+/* 条目备注:整行折行显示,"//" 技术注释前缀;与正文的间距由 .note-wrap 的展开态 margin 提供 */
+.note-line {
+  min-height: 0; /* grid 0fr 收起的前提:允许子项压缩到 0 */
+  overflow: hidden;
   font-size: 10.5px;
   line-height: 1.4;
   color: var(--hln-ui-text-muted);
   white-space: nowrap;
-  overflow: hidden;
   text-overflow: ellipsis;
 }
 
@@ -324,6 +379,7 @@ li.done .note-line {
 
 .note-edit {
   flex: 1 1 100%;
+  margin-top: 5px;
   min-height: 24px;
   font-size: 11px;
 }
@@ -601,20 +657,21 @@ li:hover .del { opacity: 0.75; }
   margin-bottom: 3px;
 }
 
-/* ---------- 迷你条(收起态,窗口收缩为 320×44) ---------- */
+/* ---------- 迷你条(收起态,窗口收缩为 320×52;与展开态上栏同高 40px、同 6px 边距) ---------- */
 .app.collapsed {
   display: flex;
   align-items: center;
+  padding: 6px;
   cursor: pointer;
 }
 
 .mini {
   width: 100%;
-  height: 32px;
+  height: 40px;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 12px;
+  padding: 0 10px; /* 与展开态顶栏一致 */
   background: var(--hln-ui-glass-strong);
   border: 1px solid var(--hln-ui-line);
   border-left: 3px solid var(--hln-ui-accent);
@@ -625,7 +682,7 @@ li:hover .del { opacity: 0.75; }
 
 .mini:hover {
   border-color: color-mix(in srgb, var(--hln-ui-accent) 45%, var(--hln-ui-line));
-  box-shadow: 0 0 14px color-mix(in srgb, var(--hln-ui-accent) 22%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--hln-ui-accent) 22%, transparent);
 }
 
 .mini .count {

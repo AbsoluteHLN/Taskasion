@@ -1,6 +1,6 @@
 [package]
 name = "taskasion"
-version = "1.0.1-aStart"
+version = "1.1.0-beta.1"
 description = "Taskasion: floating task widget with agent management"
 license = "MIT"
 edition = "2021"
@@ -20,6 +20,9 @@ tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# core 内置后的直接依赖:taskasion_core 用(此前经 Python uuid4/datetime 提供)
+uuid = { version = "1.26", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 
 [profile.dev]
 debug = 0

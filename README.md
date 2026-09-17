@@ -7,12 +7,12 @@ Taskasion 是一个置顶悬浮的 todo / goal 小组件，**本地优先**：�
 ## 特性
 
 - **悬浮即用**：透明无边框、始终置顶、可折叠为迷你条、`Ctrl+Shift+Space` 全局唤起、系统托盘。
-- **轻量便携**：壳仅约 3.1 MB；绿色便携版免安装、无注册表，解压即用（含精简 Python 3.13 运行时，解压约 33 MB、压缩包约 11.4 MB），删除文件夹即完全卸载，数据随目录拷走。
+- **单文件即全部**：核心已并入桌面壳，绿色便携版只有一个 `taskasion.exe`（约 4 MB），免安装、无注册表，删除文件夹即完全卸载，数据随目录拷走。
 - **todo.md 是唯一真相源**：单文件 Markdown，零门槛；任何编辑器、脚本、Agent 都能直接改，外部修改即时生效。
-- **AI Agent 原生**：内置 MCP server（stdio，10 个工具），Claude Code / Codex 接上即管（需可选依赖 `pip install "mcp>=1.2"`）；也可走本地 REST，`X-Taskasion-Actor` 头标识"谁在操作"。
+- **AI Agent 原生**：内置 MCP server（stdio，10 个工具），Claude Code / Codex 接上即管（`taskasion.exe mcp`，无需安装任何依赖）；也可走本地 REST，`X-Taskasion-Actor` 头标识"谁在操作"。
 - **目标（Goal）**：目标下挂任务，自动聚合进度。
 - **审计日志**：谁、何时、改了什么，全部追加记录在 `audit.jsonl`。
-- **零依赖核心**：核心只用 Python 标准库；可选安装 `mcp` 包启用 MCP。
+- **自动更新**：托盘菜单"检查更新"或头部更新按钮，从 GitHub Releases 拉取 portable zip 原子换 exe 重启。
 
 ## 架构
 
@@ -20,7 +20,7 @@ Taskasion 是一个置顶悬浮的 todo / goal 小组件，**本地优先**：�
             悬浮窗 UI（Tauri 2 + React 18 + TypeScript）
                         │  fetch REST（壳只负责渲染，不保存状态）
                         ▼
-            taskasion-core（Python 标准库，常驻进程）
+            taskasion-core（Rust，与壳同进程线程）
             · REST API   127.0.0.1:14411（仅本机，不联网）
             · MCP server（stdio）→ Claude Code / Codex 等
             · 审计日志   audit.jsonl（追加式）
@@ -32,21 +32,17 @@ Taskasion 是一个置顶悬浮的 todo / goal 小组件，**本地优先**：�
 ## 快速开始（开发）
 
 ```bash
-# 1. 启动 Core（零依赖即可跑 HTTP API；MCP 需 mcp 包）
-cd core && python -m taskasion_core serve
-
-# 2. 前端
 pnpm install
-pnpm dev            # http://localhost:14410
+pnpm build          # 产出 dist/
+pnpm tauri build    # 首次编译较久；产物 exe + data\ 同目录运行
 
-# 3. 桌面壳（首次编译较久，Rust 依赖较多）
-pnpm tauri dev
-
-# 测试
-cd core && python -m unittest discover -s tests
+# 测试（16 个单测,覆盖行解析/存储/目标/审计）
+cd src-tauri && cargo test
 ```
 
-数据目录：默认 `%USERPROFILE%\.taskasion`，可用 `TASKASION_DATA_DIR` 覆盖；端口默认 `14411`，`TASKASION_PORT` 可改。
+- 数据目录：桌面端固定为 exe 同级 `data\`；独立运行 `taskasion.exe mcp` / `taskasion.exe serve` 时默认 `%USERPROFILE%\.taskasion`，可用 `TASKASION_DATA_DIR` 覆盖。
+- 端口默认 `14411`（仅本机回环）。
+- Agent 接入 MCP：`command` 填 `taskasion.exe 的完整路径`，`args` 填 `["mcp"]`，`env` 里 `TASKASION_DATA_DIR` 与桌面端数据目录保持一致。
 
 更多设计细节见 [docs/architecture.md](docs/architecture.md)（todo.md 数据格式契约、REST API、MCP 工具集）与 [docs/research.md](docs/research.md)（立项前的竞品调研）。
 

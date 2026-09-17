@@ -1,10 +1,8 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::net::TcpStream;
-use std::os::windows::process::CommandExt;
-use std::process::{Child, Command};
-use std::sync::Mutex;
+mod taskasion_core;
+mod update;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -12,7 +10,6 @@ use tauri::Manager;
 use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, ShortcutState};
 
 const CORE_PORT: u16 = 14411;
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 // 显示/隐藏悬浮窗(按可见性切换;托盘交互会抢走窗口焦点,不能用 is_focused 判断)
 fn toggle_main(app: &tauri::AppHandle) {
@@ -26,40 +23,108 @@ fn toggle_main(app: &tauri::AppHandle) {
     }
 }
 
-// 绿色模式:端口空闲时用同目录绿色 runtime 拉起本地 core(数据在同级 data\)。
-// 已有 core 在跑(开发源码实例或上次残留)则直接复用,不重复拉起。
-fn spawn_core_if_free(app: &tauri::AppHandle) {
-    let child: Option<Child> = (|| {
-        if TcpStream::connect(("127.0.0.1", CORE_PORT)).is_ok() {
-            return None;
-        }
-        let exe_dir = std::env::current_exe().ok()?.parent()?.to_path_buf();
-        let python = exe_dir.join("runtime").join("python.exe");
-        if !python.exists() {
-            return None; // 开发目录没有绿色 runtime,由外部手动起 core
-        }
-        Command::new(&python)
-            .args(["-m", "taskasion_core", "serve", "--host", "127.0.0.1", "--port", "14411"])
-            .arg("--data-dir")
-            .arg(exe_dir.join("data"))
-            .env("PYTHONPATH", &exe_dir)
-            .current_dir(&exe_dir)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn()
-            .ok()
-    })();
-    app.manage(Mutex::new(child));
-}
-
-// 头部 ✕ = 退出整个 Taskasion(壳 + core);RunEvent::Exit 统一回收 core 子进程
+// 头部 ✕ = 退出整个 Taskasion(core 与壳同进程,随壳一起退出)
 #[tauri::command]
 fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+// 前端更新按钮:检查更新,结果经 update-status 事件推送
+#[tauri::command]
+fn check_update(app: tauri::AppHandle) {
+    std::thread::spawn(move || update::check_and_emit(&app));
+}
+
+// 前端更新按钮:下载 → 换 exe → 重启
+#[tauri::command]
+fn apply_update(app: tauri::AppHandle) {
+    update::apply(app);
+}
+
+// release 是 windows 子系统(无控制台);CLI 子命令运行时挂回父终端,让 stdout 可见
+#[cfg(windows)]
+fn attach_console() {
+    extern "system" {
+        fn AttachConsole(dw_process_id: u32) -> i32;
+    }
+    unsafe {
+        AttachConsole(u32::MAX); // ATTACH_PARENT_PROCESS
+    }
+}
+
+// CLI 子命令:taskasion serve / taskasion mcp(替代原 python -m taskasion_core …)
+fn run_cli(args: &[String]) -> bool {
+    match args.first().map(String::as_str) {
+        Some("serve") => {
+            let mut host = "127.0.0.1".to_string();
+            let mut port = CORE_PORT;
+            let mut data_dir = taskasion_core::rest::default_data_dir();
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--host" => {
+                        i += 1;
+                        if let Some(v) = args.get(i) {
+                            host = v.clone();
+                        }
+                    }
+                    "--port" => {
+                        i += 1;
+                        if let Some(v) = args.get(i) {
+                            port = v.parse().unwrap_or(14411);
+                        }
+                    }
+                    "--data-dir" => {
+                        i += 1;
+                        if let Some(v) = args.get(i) {
+                            data_dir = std::path::PathBuf::from(v);
+                        }
+                    }
+                    _ => {}
+                }
+                i += 1;
+            }
+            if let Err(e) = taskasion_core::rest::serve(&host, port, &data_dir, 0) {
+                eprintln!("taskasion-core 启动失败: {e}");
+                std::process::exit(1);
+            }
+            true
+        }
+        Some("mcp") => {
+            let mut data_dir = taskasion_core::rest::default_data_dir();
+            let mut i = 1;
+            while i < args.len() {
+                if args[i] == "--data-dir" {
+                    if let Some(v) = args.get(i + 1) {
+                        data_dir = std::path::PathBuf::from(v);
+                    }
+                    i += 2;
+                } else {
+                    i += 1;
+                }
+            }
+            if let Err(e) = taskasion_core::mcp::run(&data_dir) {
+                eprintln!("taskasion-mcp 错误: {e}");
+                std::process::exit(1);
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
 fn main() {
+    // CLI 子命令(serve / mcp);无参数或 GUI 模式继续
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if !args.is_empty() {
+        attach_console();
+    }
+    if run_cli(&args) {
+        return;
+    }
+
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![quit_app])
+        .invoke_handler(tauri::generate_handler![quit_app, check_update, apply_update])
         .plugin(
             ShortcutBuilder::new()
                 .with_shortcuts(["ctrl+shift+space"])
@@ -73,7 +138,24 @@ fn main() {
                 .build(),
         )
         .setup(|app| {
-            spawn_core_if_free(app.handle());
+            // 内置 core:与壳同进程的线程,数据目录 = exe 同级 data\(与原绿色模式一致)
+            let data_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|d| d.join("data")))
+                .unwrap_or_else(taskasion_core::rest::default_data_dir);
+            std::thread::spawn(move || {
+                // 绑定失败按 250ms 重试约 10s(更新换 exe 后等旧实例释放端口);
+                // 仍失败则放弃,前端会落到已存在的其它实例 core 上(与旧语义一致)
+                if let Err(e) =
+                    taskasion_core::rest::serve("127.0.0.1", CORE_PORT, &data_dir, 40)
+                {
+                    eprintln!("taskasion-core 启动失败: {e}");
+                }
+            });
+
+            // 清理上次更新遗留的 taskasion.exe.old,并安排启动后静默检查更新
+            update::cleanup_old();
+            update::schedule_auto_check(app.handle().clone());
 
             // 启动时停靠到主屏右上角
             if let Some(win) = app.get_webview_window("main") {
@@ -88,8 +170,9 @@ fn main() {
 
             // 系统托盘:出现在任务栏右侧图标区,提供"方便关闭"的入口
             let toggle = MenuItem::with_id(app, "toggle", "显示 / 隐藏", true, None::<&str>)?;
+            let update = MenuItem::with_id(app, "update", "检查更新", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出 Taskasion", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&toggle, &quit])?;
+            let menu = Menu::with_items(app, &[&toggle, &update, &quit])?;
             TrayIconBuilder::with_id("taskasion-tray")
                 .icon(app.default_window_icon().expect("missing window icon").clone())
                 .tooltip("Taskasion — Ctrl+Shift+Space 显示/隐藏")
@@ -97,6 +180,15 @@ fn main() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "toggle" => toggle_main(app),
+                    "update" => {
+                        // 检查更新并把窗口带出来,结果体现在头部更新按钮上
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                        let handle = app.clone();
+                        std::thread::spawn(move || update::check_and_emit(&handle));
+                    }
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -116,19 +208,7 @@ fn main() {
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
-        .run(|_app, event| {
-            // 退出时回收本壳拉起的 core 子进程(壳被强杀则 core 残留,
-            // 下次启动因端口占用会直接复用,数据无状态,安全)
-            if let tauri::RunEvent::Exit = event {
-                if let Some(mut child) = _app
-                    .state::<Mutex<Option<Child>>>()
-                    .lock()
-                    .ok()
-                    .and_then(|mut guard| guard.take())
-                {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                }
-            }
+        .run(|_app, _event| {
+            // core 已内置同进程,无需回收子进程
         });
 }

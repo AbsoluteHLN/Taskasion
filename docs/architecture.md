@@ -7,37 +7,34 @@
 │  透明/无边框/置顶/不可手动拉伸;折叠时窗口收缩为迷你条 │
 │  面板半透明玻璃(HLN 玻璃令牌降 alpha,根背景放穿)  │
 │  应用图标 = 托盘图标(icons/icon.ico,HLN 引擎风格) │
-│  系统托盘:左键显示/隐藏;右键菜单 显示/隐藏+退出 │
-│  Ctrl+Shift+Space 全局显示/隐藏;头部 ✕ 退出(壳+core 一起退)  │
+│  系统托盘:左键显示/隐藏;右键菜单 显示/隐藏+检查更新+退出 │
+│  Ctrl+Shift+Space 全局显示/隐藏;头部 ✕ 退出  │
+│  头部更新按钮 + 托盘"检查更新" → GitHub Releases 自动更新 │
 │  WebView(React/TS) ──fetch──► Core REST  │
-└───────────────────────────────────────────┘
-┌─ taskasion-core(core/, Python)────────────┐
+│  taskasion-core(src-tauri/src/taskasion_core/, Rust)│
 │  TaskStore:todo.md 真相源 + 归一化 + 热加载 │
 │  REST API 127.0.0.1:14411(JSON + CORS)     │
-│  MCP server(stdio,FastMCP 官方 SDK)      │
+│  MCP server(stdio,serde_json 手写 JSON-RPC)│
 │  Audit:audit.jsonl 追加式审计             │
 └───────────────────────────────────────────┘
 ```
 
-职责边界:**壳只负责渲染**,一切状态在 Core 与 todo.md。壳与 Core 用 `127.0.0.1` HTTP 通信——这让 Agent、脚本、未来的 Tauri 微组件可以共享同一个 Core。
+职责边界:**壳只负责渲染**,一切状态在 Core 与 todo.md。Core 与壳同进程(独立线程),仍以 `127.0.0.1` HTTP 通信——这让 Agent、脚本、未来的 Tauri 微组件可以共享同一个 Core;`taskasion.exe serve` / `taskasion.exe mcp` 也可独立运行。
 
 ## 分发形态:绿色便携(portable)
 
-自用成品就是一个绿色文件夹(无安装包、无注册表、数据随身):
+自用成品就是一个绿色文件夹(无安装包、无注册表、数据随身),**单 exe 即全部**:
 
 ```
 release/
-├─ taskasion.exe      壳(Tauri,自包含前端,~3MB)
-├─ runtime/           绿色 Python 3.13 运行时(~32MB,取自本机 conda,剪裁 stdlib)
-│   python.exe + python313.dll + vcruntime*.dll + DLLs/ + Lib/(无 site-packages)
-├─ taskasion_core/    Core 源码(可见可改;runtime 靠 PYTHONPATH 指到本目录加载)
+├─ taskasion.exe      壳 + 内置 Core(Rust,自包含前端,~4MB)
 └─ data/              todo.md · goals.md · audit.jsonl(真相源,整包拷走即迁移)
 ```
 
-- 壳启动时探测 `127.0.0.1:14411`:空闲且同级存在 `runtime\python.exe`,则静默拉起 `runtime\python.exe -m taskasion_core serve --port 14411 --data-dir <同级>data`(CREATE_NO_WINDOW,不闪黑框);端口已占用(开发源码实例或残留)则直接复用。
-- 壳正常退出(托盘→退出)时杀掉自己拉起的 core 子进程;若壳被强杀导致 core 残留,下次启动因端口占用直接复用,无状态风险。
-- 开发态(源码跑壳、无绿色 runtime)维持原样:手动 `cd core && python -m taskasion_core serve`,数据默认 `~/.taskasion`,或 `TASKASION_DATA_DIR` 指定。
+- 壳启动时直接在进程内起 Core 线程(绑定失败按 250ms 重试约 10s,等更新换 exe 后的端口交接;仍失败则前端复用已存在的其它实例 Core)。
+- 数据目录:桌面端 = exe 同级 `data\`;`taskasion.exe serve` / `mcp` 独立运行时默认 `%USERPROFILE%\.taskasion`,`TASKASION_DATA_DIR` 可覆盖。
 - port 口径:**14411 为全项目统一端口**(api.ts 兜底、壳 CSP、Core 默认一致);旧 8737 弃用。
+- 自动更新:启动 6s 后静默检查 GitHub Releases(系统 `curl.exe`),有新版时头部出现更新按钮,点击后下载 zip → 系统 `tar.exe` 解压 → 当前 exe 改名 `.old` 让位 → 新 exe 落位并重启;下次启动清理 `.old`。也可走托盘菜单"检查更新"。
 
 ## 数据契约:`todo.md`(真相源)
 
@@ -89,7 +86,7 @@ release/
 | `goal_list` | status=todo 默认;含每目标进度 |
 | `goal_link_task` | 给 task 追加 `goal:<id>` 标签完成关联 |
 
-Agent 侧接入:Claude Code / Codex 配置 `command=python, args=-m taskasion_core.mcp_server`,数据目录沿用 `TASKASION_DATA_DIR`(绿色模式下把它指到便携文件夹的 `data\` 即操作同一份真相源)。
+Agent 侧接入:Claude Code / Codex 配置 `command=<taskasion.exe 完整路径>, args=["mcp"]`,数据目录沿用 `TASKASION_DATA_DIR`(把它指到便携文件夹的 `data\` 即操作同一份真相源)。MCP 协议为 stdio 换行分隔 JSON-RPC 2.0,由 Core 用 serde_json 手写实现,不依赖任何第三方包。
 
 ## 审计
 

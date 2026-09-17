@@ -3116,13 +3116,15 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "taskasion"
-version = "1.0.1-aStart"
+version = "1.1.0-beta.1"
 dependencies = [
+ "chrono",
  "serde",
  "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-global-shortcut",
+ "uuid",
 ]
 
 [[package]]

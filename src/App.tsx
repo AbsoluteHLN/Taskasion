@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 import {
   addGoal,
@@ -29,9 +30,9 @@ const pct = (p: { total: number; done: number }) =>
 // HLN 条目入场动画的级联序号
 const motionItem = (idx: number) => ({ "--hln-ui-motion-index": idx }) as CSSProperties;
 
-// 折叠态/展开态窗口逻辑尺寸
+// 折叠态/展开态窗口逻辑尺寸;两种状态的上栏等高(52 = 6 边距 + 40 栏 + 6)
 const SIZE_EXPANDED: [number, number] = [320, 440];
-const SIZE_COLLAPSED: [number, number] = [320, 44];
+const SIZE_COLLAPSED: [number, number] = [320, 52];
 
 function applyWindowSize([w, h]: [number, number]) {
   try {
@@ -60,6 +61,27 @@ export default function App() {
   const [offline, setOffline] = useState(false);
   const [openGoalId, setOpenGoalId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  // 更新控件状态:available/downloading → 常驻按钮;latest/error → 4s 后自动消失
+  const [upd, setUpd] = useState<{ state: string; version: string | null; message: string | null } | null>(null);
+  const updTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<{ state: string; version: string | null; message: string | null }>("update-status", (e) => {
+      const s = e.payload;
+      setUpd(s);
+      if (updTimer.current) window.clearTimeout(updTimer.current);
+      if (s.state === "latest" || s.state === "error") {
+        updTimer.current = window.setTimeout(() => setUpd(null), 4000);
+      }
+    })
+      .then((fn) => (unlisten = fn))
+      .catch(() => {});
+    return () => {
+      unlisten?.();
+      if (updTimer.current) window.clearTimeout(updTimer.current);
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -129,7 +151,11 @@ export default function App() {
     await refresh();
   };
 
+  // 刚被 blur 关闭的备注编辑框:同一击 click 会落在行上,短暂忽略防止关了又开(像卡死)
+  const noteClosed = useRef<{ id: string; t: number } | null>(null);
+
   const saveNote = async (t: Task, raw: string) => {
+    noteClosed.current = { id: t.id, t: Date.now() };
     setEditingNoteId(null);
     const v = raw.trim();
     if (v !== (t.note ?? "")) {
@@ -268,7 +294,11 @@ export default function App() {
         data-hln-motion-variant="data-stream"
         style={motionItem(idx)}
         title="点击条目编辑备注"
-        onClick={() => setEditingNoteId(t.id)}
+        onClick={() => {
+          const nc = noteClosed.current;
+          if (nc && nc.id === t.id && Date.now() - nc.t < 250) return;
+          setEditingNoteId(t.id);
+        }}
       >
         <button
           className={`check${t.done ? " checked" : ""}`}
@@ -345,9 +375,12 @@ export default function App() {
             }}
             onBlur={(e) => saveNote(t, e.currentTarget.value)}
           />
-        ) : (
-          t.note && <div className="note-line">{t.note}</div>
-        )}
+        ) : t.note ? (
+          // 只在有备注时渲染:空 wrapper 也会折出一行 flex line,把内容顶得不居中
+          <div className="note-wrap">
+            <div className="note-line">{t.note}</div>
+          </div>
+        ) : null}
       </li>
     );
   };
@@ -415,6 +448,26 @@ export default function App() {
           </span>
           <span className="spacer" />
           {offline && <span className="offline">OFFLINE</span>}
+          {upd && (
+            <button
+              className="icon-btn upd-btn"
+              data-upd-state={upd.state}
+              title={upd.message ?? ""}
+              onClick={() => {
+                if (upd.state === "available") void invoke("apply_update");
+              }}
+            >
+              {upd.state === "available"
+                ? "⤓"
+                : upd.state === "downloading"
+                  ? "···"
+                  : upd.state === "latest"
+                    ? "✓"
+                    : upd.state === "error"
+                      ? "!"
+                      : "↻"}
+            </button>
+          )}
           <button className="icon-btn" title="退出 Taskasion（含后台）" onClick={() => invoke("quit_app")}>
             ✕
           </button>

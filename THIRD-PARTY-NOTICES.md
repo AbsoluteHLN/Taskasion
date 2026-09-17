@@ -1,8 +1,7 @@
 # 第三方组件声明 (Third-Party Notices)
 
 Taskasion 在开发过程中使用了以下开源项目。所有第三方组件均为开源软件,
-其许可证副本见本文件末尾(完整收录 MIT / Apache-2.0 / PSF-2.0 文本)。
-便携版发行包内另附 `runtime/LICENSE.Python.txt`(捆绑 Python 运行时的官方完整许可)。
+其许可证副本见本文件末尾(完整收录 MIT / Apache-2.0 文本)。
 
 ## 运行时随附组件 (随 Taskasion.exe 分发)
 
@@ -17,25 +16,20 @@ Taskasion 在开发过程中使用了以下开源项目。所有第三方组件�
 | tao (窗口库) | 0.35.3 | MIT OR Apache-2.0 | https://github.com/tauri-apps/tao |
 | serde | 1.0.229 | MIT OR Apache-2.0 | https://github.com/serde-rs/serde |
 | serde_json | 1.0.151 | MIT OR Apache-2.0 | https://github.com/serde-rs/json |
-| CPython (捆绑解释器) | 3.13.5 | PSF-2.0 | https://github.com/python/cpython |
+| uuid | 1.26.1 | Apache-2.0 OR MIT | https://github.com/uuid-rs/uuid |
+| chrono | 0.4.45 | Apache-2.0 OR MIT | https://github.com/chronotope/chrono |
 
 说明:
 
 - **tauri-plugin-global-shortcut** 来自 Tauri 官方插件工作区,与 Tauri 同为
   MIT OR Apache-2.0 双许可。
 - **wry / tao** 为 Tauri 的传递依赖 (transitive dependencies),由 Tauri 引入。
-- Rust 侧其余传递 crate(windows、webview2-com、tray-icon 等,完整清单见仓库
-  中的 `src-tauri/Cargo.lock`)均为 MIT 或 MIT OR Apache-2.0 许可,未包含任何
-  Copyleft (GPL/LGPL) 组件。
-- **CPython 3.13.5** 以便携方式捆绑于发行包的 `runtime/` 目录,其官方完整许可
-  (PSF License Version 2 及捆绑库的第三方声明)收录在该目录的
-  `LICENSE.Python.txt`,文本亦完整转载于本文件末尾「许可证全文」一节。
-- Taskasion 的 Python 核心 (`taskasion_core`) 仅使用 Python 标准库,不捆绑任何
-  第三方 site-packages。其可选的 MCP 支持依赖
-  [modelcontextprotocol/python-sdk](https://github.com/modelcontextprotocol/python-sdk)
-  (MIT 许可),默认发行包未包含该可选依赖。
+- Rust 侧其余传递 crate(windows、webview2-com、tray-icon、getrandom、
+  iana-time-zone 等,完整清单见仓库中的 `src-tauri/Cargo.lock`)均为 MIT 或
+  MIT OR Apache-2.0 许可,未包含任何 Copyleft (GPL/LGPL) 组件。
 - **Microsoft Edge WebView2 Runtime** 是 Windows 系统组件 (由系统/Edge 渠道分发),
   Taskasion 不再分发、也不修改它,故不在此列;它不是本仓库的一部分。
+- 自动更新使用系统自带的 `curl.exe` 与 `tar.exe`(Windows 系统组件,不随本包分发)。
 
 ## 仅构建期使用 (不随发行包分发)
 
@@ -63,7 +57,6 @@ Taskasion 在开发过程中使用了以下开源项目。所有第三方组件�
 
 > 适用于: React, ReactDOM, Vite, Rollup, @vitejs/plugin-react,
 > @types/react, @types/react-dom
-
 ```
 MIT License
 
@@ -296,61 +289,4 @@ affiliates.") 存在于其源码发行物中,均予保留。)
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
-```
-
-## PSF License Version 2 (CPython)
-
-> 适用于: 捆绑的 CPython 3.13.5 运行时。
-> 完整官方文本 (含历史与捆绑库声明) 另见发行包
-> `runtime/LICENSE.Python.txt`。
-
-```
-PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
---------------------------------------------
-
-1. This License Agreement is between the Python Software Foundation
-("PSF"), and the Individual or Organization ("Licensee") accessing and
-otherwise using this software ("Python") in source or binary form and
-its associated documentation.
-
-2. Subject to the terms and conditions of this License Agreement, PSF hereby
-grants Licensee a nonexclusive, royalty-free, world-wide license to reproduce,
-analyze, test, perform and/or display publicly, prepare derivative works,
-distribute, and otherwise use Python alone or in any derivative version,
-provided, however, that PSF's License Agreement and PSF's notice of copyright,
-i.e., "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024,
-2025 Python Software Foundation; All Rights Reserved" are retained in Python
-alone or in any derivative version prepared by Licensee.
-
-3. In the event Licensee prepares a derivative work that is based on
-or incorporates Python or any part thereof, and wants to make
-the derivative work available to others as provided herein, then
-Licensee hereby agrees to include in any such work a brief summary of
-the changes made to Python.
-
-4. PSF is making Python available to Licensee on an "AS IS"
-basis.  PSF MAKES NO REPRESENTATIONS OR WARRANTIES, EXPRESS OR
-IMPLIED.  BY WAY OF EXAMPLE, BUT NOT LIMITATION, PSF MAKES NO AND
-DISCLAIMS ANY REPRESENTATION OR WARRANTY OF MERCHANTABILITY OR FITNESS
-FOR ANY PARTICULAR PURPOSE OR THAT THE USE OF PYTHON WILL NOT
-INFRINGE ANY THIRD PARTY RIGHTS.
-
-5. PSF SHALL NOT BE LIABLE TO LICENSEE OR ANY OTHER USERS OF PYTHON
-FOR ANY INCIDENTAL, SPECIAL, OR CONSEQUENTIAL DAMAGES OR LOSS AS
-A RESULT OF MODIFYING, DISTRIBUTING, OR OTHERWISE USING PYTHON,
-OR ANY DERIVATIVE THEREOF, EVEN IF ADVISED OF THE POSSIBILITY THEREOF.
-
-6. This License Agreement will automatically terminate upon a material
-breach of its terms and conditions.
-
-7. Nothing in this License Agreement shall be deemed to create any
-relationship of agency, partnership, or joint venture between PSF and
-Licensee.  This License Agreement does not grant permission to use PSF
-trademarks or trade name in a trademark sense to endorse or promote
-products or services of Licensee, or any third party.
-
-8. By copying, installing or otherwise using Python, Licensee
-agrees to be bound by the terms and conditions of this License
-Agreement.
 ```
