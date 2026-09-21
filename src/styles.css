@@ -26,11 +26,13 @@ body,
   background: transparent;
 }
 
-/* ---------- 半透明玻璃:下调 HLN 玻璃令牌,桌面透出 ---------- */
+/* ---------- 半透明玻璃:下调 HLN 玻璃令牌,桌面透出 ----------
+   透明度不能压太低:桌面内容会从文字后面透出来,看起来像字体发虚。
+   68% 已被实测判定"虚化偏重",抬到 76% 保读感,仍留透光。 */
 .app[data-hln-theme="arknights"] {
-  --hln-ui-glass: rgb(11 16 22 / 68%);
-  --hln-ui-panel-bg: rgb(11 16 22 / 68%);
-  --hln-ui-glass-strong: rgb(17 24 32 / 80%);
+  --hln-ui-glass: rgb(11 16 22 / 76%);
+  --hln-ui-panel-bg: rgb(11 16 22 / 76%);
+  --hln-ui-glass-strong: rgb(17 24 32 / 86%);
   /* 引擎默认 0 10px 30px/50% 的投影远超窗体 6px 透明边距,会被硬切成一圈怪异的黑边;
      收紧为贴地小阴影,完整落在透明边距内(150% DPI 下无可见截断) */
   --hln-ui-shadow: 0 2px 9px rgb(0 0 0 / 32%);
@@ -51,13 +53,18 @@ body,
   backdrop-filter: none; /* 透明窗口无法取到桌面背景,关掉省一层合成 */
 }
 
+/* 迷你条同样关掉引擎给的 backdrop 模糊(采样不到桌面像素,纯耗合成) */
+.app .mini[data-hln-ui-surface] {
+  backdrop-filter: none;
+}
+
 /* ---------- 顶栏(激光刻线来自 data-hln-ui-bar) ---------- */
 .app .head[data-hln-ui-bar] {
   min-height: 40px;
   flex: none;
   gap: 6px;
   padding: 0 10px;
-  background: color-mix(in srgb, var(--hln-ui-bg-0) 62%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 72%, transparent);
   backdrop-filter: none;
 }
 
@@ -101,7 +108,7 @@ body,
 
 .offline {
   font-family: var(--hln-ui-font-technical);
-  font-size: 9px;
+  font-size: 10px; /* 偶数整:150% 下落在整物理像素,避免 CJK/字母半像素发虚 */
   font-weight: 700;
   letter-spacing: 0.1em;
   color: var(--hln-ui-danger);
@@ -243,7 +250,7 @@ body,
   flex: 1;
   min-width: 0;
   min-height: 30px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .adder .add-btn {
@@ -251,7 +258,7 @@ body,
   min-width: 34px;
   padding: 0;
   flex: none;
-  font-size: 15px;
+  font-size: 14px; /* 15px 在 150% 下是 22.5 物理像素,字形发虚 */
   letter-spacing: 0;
 }
 
@@ -277,14 +284,14 @@ body,
   padding: 6px 8px;
   border: 1px solid transparent;
   border-left: 2px solid var(--hln-ui-line);
-  background: color-mix(in srgb, var(--hln-ui-bg-1) 62%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 72%, transparent);
   cursor: pointer;
   transition: all var(--hln-ui-duration-fast) ease;
 }
 
 .task-row:hover {
   border-left-color: var(--hln-ui-accent);
-  background: color-mix(in srgb, var(--hln-ui-bg-2) 80%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 86%, transparent);
 }
 
 .check {
@@ -301,7 +308,7 @@ body,
   background: transparent;
   border: 2px solid var(--hln-ui-line-strong);
   color: transparent;
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1;
   cursor: pointer;
   transition: all var(--hln-ui-duration-fast) ease;
@@ -323,12 +330,44 @@ body,
 .title {
   flex: 1 1 0; /* basis 0:行内放不下时标题收缩补位,元信息不换行 */
   min-width: 0;
-  font-size: 12.5px;
-  /* CJK 字形在行盒内天然偏上:实测中心比勾选框高 2 物理像素(150% DPI),下移 1px 找齐 */
-  transform: translateY(1px);
+  /* 14px:150% 下恰为 21 整物理像素——13px(19.5)实测半像素 ppem 发虚,
+     14 比原 12 更大且整;行高 18 容纳 14px 字面,与勾选框居中对齐 */
+  font-size: 14px;
+  line-height: 18px; /* 与勾选框同轴:行盒中心 == 勾选框中心 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 长标题自动滚动:不溢出时是普通内联;溢出时整段来回巡航,悬停暂停读尾 */
+.title-inner {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.title[data-scroll] {
+  text-overflow: clip; /* 滚动展示全文,省略号会一直压在结尾 */
+}
+
+.title[data-scroll] .title-inner {
+  animation: taskasion-ticker var(--scroll-dur, 6s) ease-in-out infinite alternate;
+}
+
+li.task-row:hover .title[data-scroll] .title-inner,
+li.task-row:focus-within .title[data-scroll] .title-inner {
+  animation-play-state: paused;
+}
+
+@keyframes taskasion-ticker {
+  0%,
+  18% {
+    transform: translateX(0);
+  }
+  82%,
+  100% {
+    transform: translateX(calc(-1 * var(--scroll-dist, 0px)));
+  }
 }
 
 li.done .title {
@@ -360,7 +399,7 @@ li.task-row:focus-within .note-wrap {
 .note-line {
   min-height: 0; /* grid 0fr 收起的前提:允许子项压缩到 0 */
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: 10px; /* 偶数整字号:150% 下整物理像素,防发虚 */
   line-height: 1.4;
   color: var(--hln-ui-text-muted);
   white-space: nowrap;
@@ -381,7 +420,7 @@ li.done .note-line {
   flex: 1 1 100%;
   margin-top: 5px;
   min-height: 24px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .due {
@@ -389,6 +428,9 @@ li.done .note-line {
   font-family: var(--hln-ui-font-technical);
   font-size: 10px;
   color: var(--hln-ui-text-muted);
+  /* 实测 10px CJK 在行盒内偏上 1~2 物理像素:布局级下移找齐(整设备像素吸附,不发虚) */
+  position: relative;
+  top: 1px;
 }
 
 .due.over {
@@ -399,7 +441,7 @@ li.done .note-line {
 .pri {
   flex: none;
   font-family: var(--hln-ui-font-technical);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 1px 5px;
@@ -443,7 +485,7 @@ li.done .note-line {
   flex: none;
   max-width: 42%;
   font-family: var(--hln-ui-font-technical);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.04em;
   padding: 1px 6px;
   color: var(--hln-ui-text-muted);
@@ -460,6 +502,13 @@ li.done .note-line {
   cursor: pointer;
 }
 
+/* 目标源缩为单个 ◎ 标记:全名放悬停提示,把行宽还给标题 */
+.tag.goal-tag.goal-dot {
+  max-width: none;
+  padding: 1px 5px;
+  line-height: 1;
+}
+
 .tag.goal-tag:hover {
   background: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent);
 }
@@ -467,7 +516,7 @@ li.done .note-line {
 .agent {
   flex: none;
   font-family: var(--hln-ui-font-technical);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
   padding: 1px 5px;
@@ -488,7 +537,7 @@ li.done .note-line {
   background: transparent;
   border: none;
   color: var(--hln-ui-text-faint);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1;
   cursor: pointer;
   opacity: 0;
@@ -564,16 +613,16 @@ li:hover .del { opacity: 0.75; }
   border-top: 1px solid var(--hln-ui-line);
   border-right: 1px solid var(--hln-ui-line);
   border-bottom: 1px solid var(--hln-ui-line);
-  background: color-mix(in srgb, var(--hln-ui-bg-0) 65%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 75%, transparent);
   font-family: var(--hln-ui-font-technical);
-  font-size: 11px;
+  font-size: 12px;
   color: var(--hln-ui-text-muted);
 }
 
 .empty-code {
   display: block;
   margin-bottom: 3px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.12em;
   color: var(--hln-ui-accent);
@@ -587,13 +636,13 @@ li:hover .del { opacity: 0.75; }
   padding: 8px;
   border: 1px solid var(--hln-ui-line);
   border-left: 2px solid var(--hln-ui-line);
-  background: color-mix(in srgb, var(--hln-ui-bg-1) 62%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 72%, transparent);
   transition: all var(--hln-ui-duration-fast) ease;
 }
 
 .goal-row:hover {
   border-left-color: var(--hln-ui-accent);
-  background: color-mix(in srgb, var(--hln-ui-bg-2) 80%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 86%, transparent);
 }
 
 .goal-row .tactical-meter,
@@ -644,7 +693,7 @@ li:hover .del { opacity: 0.75; }
 
 .goal-head-title {
   display: block;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 700;
   margin-bottom: 3px;
   white-space: nowrap;
@@ -653,7 +702,7 @@ li:hover .del { opacity: 0.75; }
 }
 
 .meter-meta {
-  font-size: 9px !important;
+  font-size: 10px !important;
   margin-bottom: 3px;
 }
 

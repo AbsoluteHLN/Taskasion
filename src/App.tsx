@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -29,6 +29,38 @@ const pct = (p: { total: number; done: number }) =>
 
 // HLN 条目入场动画的级联序号
 const motionItem = (idx: number) => ({ "--hln-ui-motion-index": idx }) as CSSProperties;
+
+// 长标题自动滚动:量一下内层是否溢出,溢出则把溢出像素交给 CSS 来回巡航
+function MarqueeTitle({ text }: { text: string }) {
+  const boxRef = useRef<HTMLSpanElement>(null);
+  const innerRef = useRef<HTMLSpanElement>(null);
+  const [dist, setDist] = useState(0);
+
+  useLayoutEffect(() => {
+    const box = boxRef.current;
+    const inner = innerRef.current;
+    if (!box || !inner) return;
+    const over = Math.ceil(inner.scrollWidth - box.clientWidth);
+    setDist(over > 2 ? over : 0);
+  }, [text]);
+
+  const scrollStyle =
+    dist > 0
+      ? ({
+          "--scroll-dist": `${dist}px`,
+          // 约 13px/s 的阅读速度,单程 4–14s:太快来不及认字,太慢等不到尾巴
+          "--scroll-dur": `${Math.min(14, Math.max(4, dist / 13))}s`,
+        } as CSSProperties)
+      : undefined;
+
+  return (
+    <span ref={boxRef} className="title" data-scroll={dist > 0 ? "" : undefined}>
+      <span ref={innerRef} className="title-inner" style={scrollStyle}>
+        {text}
+      </span>
+    </span>
+  );
+}
 
 // 折叠态/展开态窗口逻辑尺寸;两种状态的上栏等高(52 = 6 边距 + 40 栏 + 6)
 const SIZE_EXPANDED: [number, number] = [320, 440];
@@ -310,7 +342,7 @@ export default function App() {
         >
           ✓
         </button>
-        <span className="title">{t.title}</span>
+        <MarqueeTitle text={t.title} />
         {d && <span className={`due${d.overdue ? " over" : ""}`}>{d.text}</span>}
         <button
           className={`pri${t.priority ? ` ${t.priority}` : " unset"}`}
@@ -328,15 +360,15 @@ export default function App() {
             openGoal && tag === `goal:${openGoal.id}` ? null : (
               <span
                 key={tag}
-                className="tag goal-tag"
-                title="查看目标"
+                className="tag goal-tag goal-dot"
+                title={`目标: ${goals.find((g) => g.id === tag.slice(5))?.title ?? "目标"}`}
                 onClick={(e: MouseEvent) => {
                   e.stopPropagation();
                   setView("goals");
                   setOpenGoalId(tag.slice(5));
                 }}
               >
-                ◎ {goals.find((g) => g.id === tag.slice(5))?.title ?? "目标"}
+                ◎
               </span>
             )
           ) : (

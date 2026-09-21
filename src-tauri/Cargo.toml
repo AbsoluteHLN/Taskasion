@@ -1,6 +1,6 @@
 [package]
 name = "taskasion"
-version = "1.1.0-beta.1"
+version = "1.1.0-beta.2"
 description = "Taskasion: floating task widget with agent management"
 license = "MIT"
 edition = "2021"
