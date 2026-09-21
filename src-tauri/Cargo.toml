@@ -6,6 +6,11 @@ license = "MIT"
 edition = "2021"
 rust-version = "1.85"
 
+# 产物名与品牌一致;crate 名保持小写(crates.io 约定),两者不冲突
+[[bin]]
+name = "Taskasion"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

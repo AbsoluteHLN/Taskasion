@@ -7,9 +7,9 @@ Taskasion 是一个置顶悬浮的 todo / goal 小组件，**本地优先**：�
 ## 特性
 
 - **悬浮即用**：透明无边框、始终置顶、可折叠为迷你条、`Ctrl+Shift+Space` 全局唤起、系统托盘。
-- **单文件即全部**：核心已并入桌面壳，绿色便携版只有一个 `taskasion.exe`（约 4 MB），免安装、无注册表，删除文件夹即完全卸载，数据随目录拷走。
+- **单文件即全部**：核心已并入桌面壳，绿色便携版只有一个 `Taskasion.exe`（约 4 MB），免安装、无注册表，删除文件夹即完全卸载，数据随目录拷走。
 - **todo.md 是唯一真相源**：单文件 Markdown，零门槛；任何编辑器、脚本、Agent 都能直接改，外部修改即时生效。
-- **AI Agent 原生**：内置 MCP server（stdio，10 个工具），Claude Code / Codex 接上即管（`taskasion.exe mcp`，无需安装任何依赖）；也可走本地 REST，`X-Taskasion-Actor` 头标识"谁在操作"。
+- **AI Agent 原生**：内置 MCP server（stdio，10 个工具），Claude Code / Codex 接上即管（`Taskasion.exe mcp`，无需安装任何依赖）；也可走本地 REST，`X-Taskasion-Actor` 头标识"谁在操作"。
 - **目标（Goal）**：目标下挂任务，自动聚合进度。
 - **审计日志**：谁、何时、改了什么，全部追加记录在 `audit.jsonl`。
 - **自动更新**：托盘菜单"检查更新"或头部更新按钮，从 GitHub Releases 拉取 portable zip 原子换 exe 重启。
@@ -40,9 +40,9 @@ pnpm tauri build    # 首次编译较久；产物 exe + data\ 同目录运行
 cd src-tauri && cargo test
 ```
 
-- 数据目录：桌面端固定为 exe 同级 `data\`；独立运行 `taskasion.exe mcp` / `taskasion.exe serve` 时默认 `%USERPROFILE%\.taskasion`，可用 `TASKASION_DATA_DIR` 覆盖。
+- 数据目录：桌面端固定为 exe 同级 `data\`；独立运行 `Taskasion.exe mcp` / `Taskasion.exe serve` 时默认 `%USERPROFILE%\.taskasion`，可用 `TASKASION_DATA_DIR` 覆盖。
 - 端口默认 `14411`（仅本机回环）。
-- Agent 接入 MCP：`command` 填 `taskasion.exe 的完整路径`，`args` 填 `["mcp"]`，`env` 里 `TASKASION_DATA_DIR` 与桌面端数据目录保持一致。
+- Agent 接入 MCP：`command` 填 `Taskasion.exe 的完整路径`，`args` 填 `["mcp"]`，`env` 里 `TASKASION_DATA_DIR` 与桌面端数据目录保持一致。
 
 更多设计细节见 [docs/architecture.md](docs/architecture.md)（todo.md 数据格式契约、REST API、MCP 工具集）与 [docs/research.md](docs/research.md)（立项前的竞品调研）。
 

@@ -123,7 +123,7 @@ fn download_to(url: &str, dest: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// 在解压目录里递归找 taskasion.exe。
+/// 在解压目录里递归找新 exe(历史安装名 taskasion.exe / 现名 Taskasion.exe,大小写不敏感)。
 fn find_exe(dir: &Path) -> Option<PathBuf> {
     for entry in std::fs::read_dir(dir).ok()?.flatten() {
         let path = entry.path();
@@ -131,7 +131,7 @@ fn find_exe(dir: &Path) -> Option<PathBuf> {
             if let Some(found) = find_exe(&path) {
                 return Some(found);
             }
-        } else if entry.file_name().to_string_lossy().eq_ignore_ascii_case("taskasion.exe") {
+        } else if entry.file_name().to_string_lossy().eq_ignore_ascii_case("Taskasion.exe") {
             return Some(path);
         }
     }
@@ -182,7 +182,15 @@ pub fn apply(app: AppHandle) {
             return;
         };
 
-        // 运行中的 exe 允许改名、不允许同名覆盖:先改名让位,再落位
+        let Some(new_exe) = find_exe(&extract) else {
+            notify("error", "压缩包里没有找到可执行文件");
+            let _ = std::fs::remove_dir_all(&tmp);
+            return;
+        };
+
+        // 运行中的 exe 允许改名、不允许同名覆盖:先改名让位,再落位。
+        // 新 exe 用压缩包里自己的文件名(Windows 文件名大小写不敏感,历史安装的
+        // taskasion.exe 借一次自更新自然迁移为 Taskasion.exe,.old 由启动时清理)。
         let current = match std::env::current_exe() {
             Ok(p) => p,
             Err(e) => {
@@ -190,6 +198,18 @@ pub fn apply(app: AppHandle) {
                 return;
             }
         };
+        let dir = match current.parent() {
+            Some(p) => p.to_path_buf(),
+            None => {
+                notify("error", "无法定位安装目录");
+                return;
+            }
+        };
+        let new_name = new_exe
+            .file_name()
+            .map(|n| n.to_owned())
+            .unwrap_or_else(|| current.file_name().unwrap_or_default().to_owned());
+        let target = dir.join(new_name);
         let backup = current.with_extension("exe.old");
         let _ = std::fs::remove_file(&backup);
         if let Err(e) = std::fs::rename(&current, &backup) {
@@ -197,7 +217,7 @@ pub fn apply(app: AppHandle) {
             let _ = std::fs::remove_dir_all(&tmp);
             return;
         }
-        if let Err(e) = std::fs::copy(&new_exe, &current) {
+        if let Err(e) = std::fs::copy(&new_exe, &target) {
             // 落位失败 → 回滚改名,保证旧版仍可启动
             let _ = std::fs::rename(&backup, &current);
             notify("error", &format!("安装新版本失败: {e}"));
@@ -205,14 +225,14 @@ pub fn apply(app: AppHandle) {
             return;
         }
         let _ = std::fs::remove_dir_all(&tmp);
-        match Command::new(&current).spawn() {
+        match Command::new(&target).spawn() {
             Ok(_) => {
                 emit(&app, "restarting", Some(&version), "更新完成,正在重启");
                 app.exit(0);
             }
             Err(e) => {
                 // 回滚:删掉落位失败的新文件,恢复旧 exe
-                let _ = std::fs::remove_file(&current);
+                let _ = std::fs::remove_file(&target);
                 let _ = std::fs::rename(&backup, &current);
                 notify("error", &format!("启动新版本失败: {e}"));
             }
@@ -220,7 +240,7 @@ pub fn apply(app: AppHandle) {
     });
 }
 
-/// 启动时清理上次更新留下的 taskasion.exe.old(此时已不被锁定)。
+/// 启动时清理上次更新留下的 *.exe.old(此时已不被锁定;文件名大小写不敏感,新旧名通吃)。
 pub fn cleanup_old() {
     if let Ok(cur) = std::env::current_exe() {
         let _ = std::fs::remove_file(cur.with_extension("exe.old"));
