@@ -1,8 +1,11 @@
 // Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod reminder;
 mod taskasion_core;
 mod update;
+
+use std::sync::Arc;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -92,18 +95,29 @@ fn run_cli(args: &[String]) -> bool {
         }
         Some("mcp") => {
             let mut data_dir = taskasion_core::rest::default_data_dir();
+            // --actor 只影响审计留痕;不给就沿用历史默认值 agent:mcp
+            let mut actor = "agent:mcp".to_string();
             let mut i = 1;
             while i < args.len() {
-                if args[i] == "--data-dir" {
-                    if let Some(v) = args.get(i + 1) {
-                        data_dir = std::path::PathBuf::from(v);
+                match args[i].as_str() {
+                    "--data-dir" => {
+                        if let Some(v) = args.get(i + 1) {
+                            data_dir = std::path::PathBuf::from(v);
+                        }
+                        i += 2;
                     }
-                    i += 2;
-                } else {
-                    i += 1;
+                    "--actor" => {
+                        if let Some(v) = args.get(i + 1) {
+                            if !v.is_empty() {
+                                actor = v.clone();
+                            }
+                        }
+                        i += 2;
+                    }
+                    _ => i += 1,
                 }
             }
-            if let Err(e) = taskasion_core::mcp::run(&data_dir) {
+            if let Err(e) = taskasion_core::mcp::run(&data_dir, &actor) {
                 eprintln!("taskasion-mcp 错误: {e}");
                 std::process::exit(1);
             }
@@ -143,15 +157,25 @@ fn main() {
                 .ok()
                 .and_then(|p| p.parent().map(|d| d.join("data")))
                 .unwrap_or_else(taskasion_core::rest::default_data_dir);
-            std::thread::spawn(move || {
-                // 绑定失败按 250ms 重试约 10s(更新换 exe 后等旧实例释放端口);
-                // 仍失败则放弃,前端会落到已存在的其它实例 core 上(与旧语义一致)
-                if let Err(e) =
-                    taskasion_core::rest::serve("127.0.0.1", CORE_PORT, &data_dir, 40)
-                {
-                    eprintln!("taskasion-core 启动失败: {e}");
-                }
-            });
+
+            // REST / MCP / 提醒调度共用同一个 Core 实例:一份内存态、一个审计器。
+            let core = Arc::new(taskasion_core::rest::Core::open(&data_dir));
+            {
+                let core = core.clone();
+                let data_dir = data_dir.clone();
+                std::thread::spawn(move || {
+                    // 绑定失败按 250ms 重试约 10s(更新换 exe 后等旧实例释放端口);
+                    // 仍失败则放弃,前端会落到已存在的其它实例 core 上(与旧语义一致)
+                    if let Err(e) =
+                        taskasion_core::rest::serve_shared(core, "127.0.0.1", CORE_PORT, 40)
+                    {
+                        eprintln!("taskasion-core 启动失败: {e}  data={}", data_dir.display());
+                    }
+                });
+            }
+
+            // 提醒调度:只读真相源,到点响一声并把 reminder-fired 推给前端高亮
+            reminder::spawn(core, app.handle().clone());
 
             // 清理上次更新遗留的 taskasion.exe.old,并安排启动后静默检查更新
             update::cleanup_old();

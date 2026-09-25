@@ -14,7 +14,7 @@ use chrono::Local;
 use serde_json::json;
 
 use super::audit::Audit;
-use super::models::{new_id, now_ts, parse_line, render_line, Task};
+use super::models::{new_id, now_ts, parse_line, render_line, valid_remind, Task};
 
 pub const TODO_HEADER: &str = "# Taskasion\n\n<!-- 真相源:可直接编辑;行尾 <!-- --> 注释是元数据(Core 会补齐/归一化) -->\n\n";
 pub const GOALS_HEADER: &str = "# Taskasion Goals\n\n<!-- 目标真相源;任务用标签 goal:<id> 关联到目标 -->\n\n";
@@ -43,6 +43,18 @@ fn clear_or_keep(v: &serde_json::Value) -> Option<String> {
         serde_json::Value::String(s) if s.is_empty() => None,
         serde_json::Value::String(s) => Some(s.clone()),
         _ => None,
+    }
+}
+
+/// 外部 `remind_time`(`HH:MM` 或 null/空)→ 规范化值;非法格式直接 400。
+/// 这里刻意比 due 严格:due 的宽松是为兼容历史数据,remind_time 是新字段,
+/// 让 Agent 立刻知道传错了,而不是静默丢掉一次提醒。
+fn normalize_remind(raw: Option<&str>) -> Result<Option<String>, CoreError> {
+    match raw.map(str::trim) {
+        None | Some("") => Ok(None),
+        Some(v) => valid_remind(v)
+            .map(Some)
+            .ok_or_else(|| CoreError::Invalid(format!("remind_time 必须是 HH:MM(24 小时制): {v}"))),
     }
 }
 
@@ -208,6 +220,7 @@ impl TaskStore {
         &self,
         title: &str,
         due: Option<&str>,
+        remind_time: Option<&str>,
         priority: Option<&str>,
         tags: Option<Vec<String>>,
         source: &str,
@@ -217,11 +230,13 @@ impl TaskStore {
         if title.is_empty() {
             return Err(CoreError::Invalid("title 不能为空".into()));
         }
+        let remind = normalize_remind(remind_time)?;
         let task = Task {
             id: new_id(),
             title: title.to_string(),
             done: false,
             due: due.map(str::to_string),
+            remind_time: remind,
             priority: priority.map(str::to_string),
             tags: tags.unwrap_or_default(),
             source: source.to_string(),
@@ -245,16 +260,42 @@ impl TaskStore {
         guard.items.iter().find(|t| t.id == id).cloned()
     }
 
-    /// 部分更新:只处理 body 里出现且被允许的字段;due/note/priority 可传 null 清空。
+    /// 部分更新:只处理 body 里出现且被允许的字段;due/remind_time/note/priority 可传 null 清空。
     pub fn update(
         &self,
         id: &str,
         fields: &serde_json::Map<String, serde_json::Value>,
         actor: &str,
     ) -> Result<Task, CoreError> {
-        const ALLOWED: [&str; 6] = ["title", "due", "priority", "tags", "source", "note"];
-        const CLEARABLE: [&str; 3] = ["due", "note", "priority"];
-        let mut applied: Vec<String> = Vec::new();
+        const ALLOWED: [&str; 7] = ["title", "due", "remind_time", "priority", "tags", "source", "note"];
+        const CLEARABLE: [&str; 4] = ["due", "remind_time", "note", "priority"];
+        // 先整体校验、后统一落库:任何字段非法就直接 400,不留下半截的内存改动
+        // (save() 不会被调用,但 items 已被改过,下一次 list 会读到它)
+        let mut changes: Vec<(&str, &serde_json::Value)> = Vec::new();
+        for key in ALLOWED {
+            let Some(v) = fields.get(key) else { continue };
+            let valid = match v {
+                serde_json::Value::Null => CLEARABLE.contains(&key), // null 只允许清空可清字段
+                serde_json::Value::String(_) => !matches!(key, "tags"),
+                serde_json::Value::Array(_) => key == "tags",
+                _ => false,
+            };
+            if !valid {
+                continue;
+            }
+            if key == "remind_time" {
+                normalize_remind(clear_or_keep(v).as_deref())?;
+            }
+            changes.push((key, v));
+        }
+        // 一个可更新字段都没有 = 沿用旧版"空 PATCH"语义:原样返回当前任务,
+        // 不动文件、不写审计。MCP 那边把 "" 过滤掉之后经常落到这里,所以不能报错。
+        if changes.is_empty() {
+            let mut guard = self.inner.lock().unwrap();
+            guard.reload_if_changed(self.audit.as_deref(), "tasks", "external_edit");
+            return guard.require(id, "任务");
+        }
+        let applied: Vec<String> = changes.iter().map(|(k, _)| (*k).to_string()).collect();
         let task = {
             let mut guard = self.inner.lock().unwrap();
             guard.reload_if_changed(self.audit.as_deref(), "tasks", "external_edit");
@@ -262,22 +303,15 @@ impl TaskStore {
             let slot = guard
                 .get_mut(id)
                 .ok_or_else(|| CoreError::NotFound(format!("任务不存在: {id}")))?;
-            for key in ALLOWED {
-                let Some(v) = fields.get(key) else { continue };
-                let clearable = CLEARABLE.contains(&key);
-                let valid = match v {
-                    serde_json::Value::Null => clearable, // null 只允许清空可清字段
-                    serde_json::Value::String(_) => !matches!(key, "tags"),
-                    serde_json::Value::Array(_) => key == "tags",
-                    _ => false,
-                };
-                if !valid {
-                    continue;
-                }
+            for (key, v) in changes {
                 match (key, v) {
                     ("title", serde_json::Value::String(s)) => slot.title = s.clone(),
                     ("source", serde_json::Value::String(s)) => slot.source = s.clone(),
                     ("due", v) => slot.due = clear_or_keep(v),
+                    // safe:上面已校验过
+                    ("remind_time", v) => {
+                        slot.remind_time = normalize_remind(clear_or_keep(v).as_deref()).unwrap_or(None)
+                    }
                     ("priority", v) => slot.priority = clear_or_keep(v),
                     ("note", v) => slot.note = clear_or_keep(v),
                     ("tags", serde_json::Value::Array(arr)) => {
@@ -288,10 +322,6 @@ impl TaskStore {
                     }
                     _ => {}
                 }
-                applied.push(key.to_string());
-            }
-            if applied.is_empty() {
-                return Err(CoreError::Invalid("没有可更新字段".into()));
             }
             let task = guard.require(id, "任务")?;
             guard.save()?;
@@ -421,6 +451,7 @@ impl GoalStore {
             title: title.to_string(),
             done: false,
             due: None,
+            remind_time: None,
             priority: None,
             tags: vec![],
             source: source.to_string(),
@@ -523,7 +554,7 @@ mod tests {
         let dir = tmp_dir("add-reload");
         let (store, _) = store_in(&dir);
         let task = store
-            .add("交季度报告", Some("2026-09-18"), Some("p1"), Some(vec!["work".into()]), "human", None)
+            .add("交季度报告", Some("2026-09-18"), None, Some("p1"), Some(vec!["work".into()]), "human", None)
             .unwrap();
         let other = TaskStore::new(&dir, None); // 模拟重启:从文件恢复
         let list = other.list("all", None);
@@ -539,7 +570,7 @@ mod tests {
     fn complete_and_reopen() {
         let dir = tmp_dir("complete-reopen");
         let (store, _) = store_in(&dir);
-        let task = store.add("买菜", None, None, None, "human", None).unwrap();
+        let task = store.add("买菜", None, None, None, None, "human", None).unwrap();
         store.set_done(&task.id, true, "human").unwrap();
         assert!(store.list("done", None)[0].done);
         assert!(store.list("todo", None).is_empty());
@@ -555,7 +586,7 @@ mod tests {
         let dir = tmp_dir("update-delete");
         let (store, _) = store_in(&dir);
         let task = store
-            .add("写周报", None, None, Some(vec!["work".into()]), "human", None)
+            .add("写周报", None, None, None, Some(vec!["work".into()]), "human", None)
             .unwrap();
         let body = serde_json::json!({"title": "写周报 v2", "due": "2026-09-15"});
         store.update(&task.id, body.as_object().unwrap(), "human").unwrap();
@@ -571,7 +602,7 @@ mod tests {
     fn external_edit_is_picked_up() {
         let dir = tmp_dir("external-edit");
         let (store, _) = store_in(&dir);
-        store.add("已有任务", None, None, None, "human", None).unwrap();
+        store.add("已有任务", None, None, None, None, "human", None).unwrap();
         let raw = fs::read_to_string(&store.todo_path).unwrap();
         fs::write(&store.todo_path, format!("{raw}\n- [ ] 外部手写的任务\n")).unwrap();
         // mtime 可能不变(同秒),手动改 stamp 触发重载路径由真实 mtime 决定;
@@ -604,8 +635,8 @@ mod tests {
     fn audit_records_agent_and_external() {
         let dir = tmp_dir("audit");
         let (store, audit) = store_in(&dir);
-        store.add("a", None, None, None, "agent:test", None).unwrap();
-        store.add("b", None, None, None, "human", None).unwrap();
+        store.add("a", None, None, None, None, "agent:test", None).unwrap();
+        store.add("b", None, None, None, None, "human", None).unwrap();
         let raw = fs::read_to_string(&store.todo_path).unwrap();
         fs::write(&store.todo_path, format!("{raw}\n- [ ] c\n")).unwrap();
         assert!(store.reload_probe());
@@ -625,8 +656,8 @@ mod tests {
         let (store, _) = store_in(&dir);
         let today = Local::now().date_naive().to_string();
         let yesterday = (Local::now().date_naive() - chrono::Duration::days(1)).to_string();
-        store.add("过期了", Some(&yesterday), None, None, "human", None).unwrap();
-        store.add("今天做", Some(&today), None, None, "human", None).unwrap();
+        store.add("过期了", Some(&yesterday), None, None, None, "human", None).unwrap();
+        store.add("今天做", Some(&today), None, None, None, "human", None).unwrap();
         let plan = store.plan_today();
         assert_eq!(plan["overdue"][0]["title"], "过期了");
         assert_eq!(plan["today_tasks"][0]["title"], "今天做");
@@ -639,9 +670,9 @@ mod tests {
         let dir = tmp_dir("roundtrip");
         let (store, _) = store_in(&dir);
         let t1 = store
-            .add("多元统计分析和机器学习作业", Some("2026-09-16"), Some("p1"), None, "human", Some("已一半"))
+            .add("多元统计分析和机器学习作业", Some("2026-09-16"), None, Some("p1"), None, "human", Some("已一半"))
             .unwrap();
-        store.add("大厅修改", None, None, Some(vec!["goal:abc12345".into()]), "human", None).unwrap();
+        store.add("大厅修改", None, None, None, Some(vec!["goal:abc12345".into()]), "human", None).unwrap();
         store.set_done(&t1.id, true, "human").unwrap();
         let raw = fs::read_to_string(&store.todo_path).unwrap();
         let other = TaskStore::new(&dir, None);
@@ -652,8 +683,60 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
-    // ---------------- GoalStore(对应 core/tests/test_goals.py)----------------
+    /// 提醒写入真相源后跨进程(重启)仍在:编码进 tags 的保留标签被正确读回。
+    #[test]
+    fn remind_survives_restart_and_clears() {
+        let dir = tmp_dir("remind");
+        let (store, _) = store_in(&dir);
+        let task = store
+            .add("开会", Some("2026-09-24"), Some("14:30"), None, Some(vec!["work".into()]), "human", None)
+            .unwrap();
+        assert_eq!(task.remind_time.as_deref(), Some("14:30"));
+        let raw = fs::read_to_string(&store.todo_path).unwrap();
+        assert!(raw.contains("tags:work,_remind:14:30"), "{raw}");
 
+        // 重启:从文件恢复
+        let other = TaskStore::new(&dir, None);
+        let back = other.list("all", None).remove(0);
+        assert_eq!(back.remind_time.as_deref(), Some("14:30"));
+        assert_eq!(back.tags, vec!["work"]);
+
+        // 改时间
+        let body = serde_json::json!({"remind_time": "07:05"});
+        store.update(&task.id, body.as_object().unwrap(), "human").unwrap();
+        assert_eq!(store.get(&task.id).unwrap().remind_time.as_deref(), Some("07:05"));
+
+        // null 清空:tags 里的保留标签一并消失,用户标签保留
+        let body = serde_json::json!({"remind_time": null});
+        store.update(&task.id, body.as_object().unwrap(), "human").unwrap();
+        let got = store.get(&task.id).unwrap();
+        assert_eq!(got.remind_time, None);
+        assert_eq!(got.tags, vec!["work"]);
+        assert!(!fs::read_to_string(&store.todo_path).unwrap().contains("_remind"));
+
+        // 非法格式:400,不静默吞掉
+        let body = serde_json::json!({"remind_time": "25:00"});
+        let err = store.update(&task.id, body.as_object().unwrap(), "human").unwrap_err();
+        assert!(matches!(err, CoreError::Invalid(_)));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// 兼容性红线:旧版(无 _remind 的)todo.md 读进来不报错、不回写损坏。
+    #[test]
+    fn legacy_file_without_remind_is_untouched() {
+        let dir = tmp_dir("legacy");
+        fs::create_dir_all(&dir).unwrap();
+        let legacy = "# Taskasion\n\n- [ ] 旧任务 <!-- id:deadbeef due:2026-09-18 pri:p1 tags:work src:human created:2026-09-14T12:00:00 note:\"旧备注\" -->\n";
+        fs::write(dir.join("todo.md"), legacy).unwrap();
+        let (store, _) = store_in(&dir);
+        let t = store.list("all", None).remove(0);
+        assert_eq!(t.remind_time, None);
+        assert_eq!(t.note.as_deref(), Some("旧备注"));
+        assert_eq!(fs::read_to_string(&store.todo_path).unwrap(), legacy);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ---------------- GoalStore(对应 core/tests/test_goals.py)----------------
     fn goals_in(dir: &Path) -> (GoalStore, Arc<Audit>) {
         let audit = Arc::new(Audit::new(&dir.join("audit.jsonl")));
         (GoalStore::new(dir, Some(audit.clone())), audit)
@@ -726,9 +809,9 @@ mod tests {
         let (goals, audit) = goals_in(&dir);
         let goal = goals.add("写书", "human").unwrap();
         let store = TaskStore::new(&dir, Some(audit));
-        let t1 = store.add("写第一章", None, None, Some(vec![format!("goal:{}", goal.id)]), "human", None).unwrap();
-        store.add("写第二章", None, None, Some(vec![format!("goal:{}", goal.id)]), "human", None).unwrap();
-        store.add("无关任务", None, None, None, "human", None).unwrap();
+        let t1 = store.add("写第一章", None, None, None, Some(vec![format!("goal:{}", goal.id)]), "human", None).unwrap();
+        store.add("写第二章", None, None, None, Some(vec![format!("goal:{}", goal.id)]), "human", None).unwrap();
+        store.add("无关任务", None, None, None, None, "human", None).unwrap();
         assert_eq!(store.list("all", Some(&format!("goal:{}", goal.id))).len(), 2);
         store.set_done(&t1.id, true, "human").unwrap();
         assert_eq!(store.list("done", Some(&format!("goal:{}", goal.id))).len(), 1);

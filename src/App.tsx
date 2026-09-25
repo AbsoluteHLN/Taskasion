@@ -12,7 +12,9 @@ import {
   setDone,
   setGoalDone,
   updateTask,
+  nowLocalTime,
   todayLocal,
+  tomorrowLocal,
   type Goal,
   type Task,
 } from "./api";
@@ -30,8 +32,9 @@ const pct = (p: { total: number; done: number }) =>
 // HLN 条目入场动画的级联序号
 const motionItem = (idx: number) => ({ "--hln-ui-motion-index": idx }) as CSSProperties;
 
-// 长标题自动滚动:量一下内层是否溢出,溢出则把溢出像素交给 CSS 来回巡航
-function MarqueeTitle({ text }: { text: string }) {
+// 长标题自动滚动:量一下内层是否溢出,溢出则把溢出像素交给 CSS 来回巡航。
+// onClick 由行内提供:点标题 = 原地改标题(不弹模态)。
+function MarqueeTitle({ text, onClick }: { text: string; onClick?: (e: MouseEvent) => void }) {
   const boxRef = useRef<HTMLSpanElement>(null);
   const innerRef = useRef<HTMLSpanElement>(null);
   const [dist, setDist] = useState(0);
@@ -54,7 +57,13 @@ function MarqueeTitle({ text }: { text: string }) {
       : undefined;
 
   return (
-    <span ref={boxRef} className="title" data-scroll={dist > 0 ? "" : undefined}>
+    <span
+      ref={boxRef}
+      className="title"
+      data-scroll={dist > 0 ? "" : undefined}
+      title="点击修改标题"
+      onClick={onClick}
+    >
       <span ref={innerRef} className="title-inner" style={scrollStyle}>
         {text}
       </span>
@@ -86,6 +95,9 @@ export default function App() {
   const [due, setDue] = useState(todayLocal());
   const [pri, setPri] = useState("");
   const [note, setNote] = useState("");
+  // 提醒:与日期同一行。◷ 只是入口,时刻输入框按需展开(默认不占位)
+  const [remind, setRemind] = useState("");
+  const [showRemind, setShowRemind] = useState(false);
   const [goalTitle, setGoalTitle] = useState("");
   const [filter, setFilter] = useState<"today" | "all">("today");
   const [showDone, setShowDone] = useState(false);
@@ -93,6 +105,10 @@ export default function App() {
   const [offline, setOffline] = useState(false);
   const [openGoalId, setOpenGoalId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
+  const [editingRemindId, setEditingRemindId] = useState<string | null>(null);
+  // 刚响过提醒的任务 id:短暂高亮,证明"是哪条在提醒"
+  const [firedId, setFiredId] = useState<string | null>(null);
   // 更新控件状态:available/downloading → 常驻按钮;latest/error → 4s 后自动消失
   const [upd, setUpd] = useState<{ state: string; version: string | null; message: string | null } | null>(null);
   const updTimer = useRef<number | null>(null);
@@ -112,6 +128,25 @@ export default function App() {
     return () => {
       unlisten?.();
       if (updTimer.current) window.clearTimeout(updTimer.current);
+    };
+  }, []);
+
+  // 提醒响铃:CSS 只负责"亮一下",不抢焦点、不弹窗、不改数据
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let timer: number | null = null;
+    listen<{ id: string }>("reminder-fired", (e) => {
+      const id = e.payload?.id;
+      if (!id) return;
+      setFiredId(id);
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setFiredId(null), 5000);
+    })
+      .then((fn) => (unlisten = fn))
+      .catch(() => {});
+    return () => {
+      unlisten?.();
+      if (timer) window.clearTimeout(timer);
     };
   }, []);
 
@@ -169,9 +204,14 @@ export default function App() {
     e.preventDefault();
     const t = title.trim();
     if (!t) return;
+    const remindValue = remind || null;
+    // 只给了时刻没给日期 → 绑今天;若今天这个点已经过去,绑明天
+    // (绝不落一个"设定即已过期"的提醒,那样用户永远等不到它响)
+    const dueValue = due || (remindValue ? (remindValue > nowLocalTime() ? todayLocal() : tomorrowLocal()) : null);
     await addTask({
       title: t,
-      due: due || null,
+      due: dueValue,
+      remind_time: remindValue,
       priority: pri || null,
       note: note.trim() || null,
       tags: openGoal ? [`goal:${openGoal.id}`] : undefined,
@@ -179,21 +219,67 @@ export default function App() {
     setTitle("");
     setPri("");
     setNote("");
+    setRemind("");
+    setShowRemind(false);
     setDue(todayLocal());
     await refresh();
   };
 
-  // 刚被 blur 关闭的备注编辑框:同一击 click 会落在行上,短暂忽略防止关了又开(像卡死)
+  // 刚被 blur 关闭的行内编辑框:同一击 click 会落在行上,短暂忽略防止关了又开(像卡死)
   const noteClosed = useRef<{ id: string; t: number } | null>(null);
+  const titleClosed = useRef<{ id: string; t: number } | null>(null);
+  // Esc 取消标记:输入框被卸载时若仍触发一次 blur,这里保证它不会顺手把内容存下去
+  const cancelEdit = useRef(false);
 
+  // 备注:回车/失焦保存,Esc 取消;清空 == 删除备注(写成 null,而不是空串)
   const saveNote = async (t: Task, raw: string) => {
     noteClosed.current = { id: t.id, t: Date.now() };
     setEditingNoteId(null);
+    if (cancelEdit.current) {
+      cancelEdit.current = false;
+      return;
+    }
     const v = raw.trim();
     if (v !== (t.note ?? "")) {
       await updateTask(t.id, { note: v || null });
       await refresh();
     }
+  };
+
+  // 标题:同样原地编辑;空白标题视为取消(任务必须有标题)
+  const saveTitle = async (t: Task, raw: string) => {
+    titleClosed.current = { id: t.id, t: Date.now() };
+    setEditingTitleId(null);
+    if (cancelEdit.current) {
+      cancelEdit.current = false;
+      return;
+    }
+    const v = raw.trim();
+    if (v && v !== t.title) {
+      await updateTask(t.id, { title: v });
+      await refresh();
+    }
+  };
+
+  const startTitleEdit = (t: Task) => (e: MouseEvent) => {
+    e.stopPropagation();
+    setEditingNoteId(null);
+    setEditingTitleId(t.id);
+  };
+
+  // 提醒:清空时刻即删除提醒;补时刻时若任务还没有日期,按"今天/明天"补上
+  const saveRemind = async (t: Task, raw: string) => {
+    setEditingRemindId(null);
+    if (cancelEdit.current) {
+      cancelEdit.current = false;
+      return;
+    }
+    const v = raw.trim();
+    if (v === (t.remind_time ?? "")) return;
+    const patch: { remind_time: string | null; due?: string } = { remind_time: v || null };
+    if (v && !t.due) patch.due = v > nowLocalTime() ? todayLocal() : tomorrowLocal();
+    await updateTask(t.id, patch);
+    await refresh();
   };
 
   const toggleCollapse = () => {
@@ -282,12 +368,6 @@ export default function App() {
     toggleCollapse();
   };
 
-  // 行点击编辑备注:完成钮/删除钮/目标标签上不触发
-  const editNoteOnClick = (t: Task) => (e: MouseEvent) => {
-    e.stopPropagation();
-    setEditingNoteId(t.id);
-  };
-
   const submitGoal = async (e: FormEvent) => {
     e.preventDefault();
     const g = goalTitle.trim();
@@ -317,6 +397,8 @@ export default function App() {
   const taskRow = (t: Task, idx: number) => {
     const d = t.done ? null : t.due ? dueLabel(t.due) : null;
     const editing = editingNoteId === t.id;
+    const editingTitle = editingTitleId === t.id;
+    const editingRemind = editingRemindId === t.id;
     return (
       <li
         key={t.id}
@@ -324,11 +406,15 @@ export default function App() {
         data-hln-motion="item"
         data-hln-motion-state="enter"
         data-hln-motion-variant="data-stream"
+        data-fired={firedId === t.id ? "" : undefined}
         style={motionItem(idx)}
-        title="点击条目编辑备注"
         onClick={() => {
+          // 标题/备注的编辑框刚因失焦关闭时,这一击不要再把编辑框打回来(像卡死)
           const nc = noteClosed.current;
           if (nc && nc.id === t.id && Date.now() - nc.t < 250) return;
+          const tc = titleClosed.current;
+          if (tc && tc.id === t.id && Date.now() - tc.t < 250) return;
+          setEditingTitleId(null);
           setEditingNoteId(t.id);
         }}
       >
@@ -342,8 +428,62 @@ export default function App() {
         >
           ✓
         </button>
-        <MarqueeTitle text={t.title} />
+        {editingTitle ? (
+          // 原地改标题:回车/失焦保存,Esc 取消(取消靠卸载输入框,onBlur 不会再补一次保存)
+          <input
+            className="title-edit"
+            type="text"
+            autoFocus
+            defaultValue={t.title}
+            data-hln-ui-field
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+              else if (e.key === "Escape") {
+                cancelEdit.current = true;
+                titleClosed.current = { id: t.id, t: Date.now() };
+                setEditingTitleId(null);
+              }
+            }}
+            onBlur={(e) => saveTitle(t, e.currentTarget.value)}
+          />
+        ) : (
+          <MarqueeTitle text={t.title} onClick={startTitleEdit(t)} />
+        )}
         {d && <span className={`due${d.overdue ? " over" : ""}`}>{d.text}</span>}
+        {!t.done &&
+          (editingRemind ? (
+            <input
+              className="remind-edit"
+              type="time"
+              autoFocus
+              defaultValue={t.remind_time ?? ""}
+              title="提醒时刻(清空即删除提醒)"
+              data-hln-ui-field
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                else if (e.key === "Escape") {
+                  cancelEdit.current = true;
+                  setEditingRemindId(null);
+                }
+              }}
+              onBlur={(e) => saveRemind(t, e.currentTarget.value)}
+            />
+          ) : (
+            // 有提醒时是常显的 ◷ 14:30;没有时是幽灵 ◷,悬停行才亮,点开即设
+            <button
+              className="remind-btn"
+              data-set={t.remind_time ? "" : undefined}
+              title={t.remind_time ? `提醒 ${t.remind_time}(点击修改,清空即删除)` : "设置提醒时刻"}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingRemindId(t.id);
+              }}
+            >
+              ◷{t.remind_time ? ` ${t.remind_time}` : ""}
+            </button>
+          ))}
         <button
           className={`pri${t.priority ? ` ${t.priority}` : " unset"}`}
           title="优先级:点击切换 无 → P1 → P2 → P3"
@@ -403,16 +543,21 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Enter") e.currentTarget.blur();
-              else if (e.key === "Escape") setEditingNoteId(null);
+              else if (e.key === "Escape") {
+                cancelEdit.current = true;
+                noteClosed.current = { id: t.id, t: Date.now() };
+                setEditingNoteId(null);
+              }
             }}
             onBlur={(e) => saveNote(t, e.currentTarget.value)}
           />
-        ) : t.note ? (
-          // 只在有备注时渲染:空 wrapper 也会折出一行 flex line,把内容顶得不居中
+        ) : (
+          // 备注默认收起,悬停条目时向下展开;没有备注时展开的是低存在感的"添加备注"提示。
+          // 展开态与编辑态都在行内,所以"编辑中鼠标移开"不会把它收掉。
           <div className="note-wrap">
-            <div className="note-line">{t.note}</div>
+            <div className={t.note ? "note-line" : "note-line note-add"}>{t.note ?? "添加备注…"}</div>
           </div>
-        ) : null}
+        )}
       </li>
     );
   };
@@ -506,21 +651,20 @@ export default function App() {
         </header>
 
         {view === "goals" && openGoal ? (
+          // 目标详情头部:压到约 40px 一行半。返回做成带边框的 26×26 方块 + CSS 箭头,
+          // 比原来的 ‹ 字符更大更明确(字符在不同字体下粗细/位置不可控)。
           <div className="goal-head" data-tauri-drag-region>
-            <button className="icon-btn back" title="返回目标列表" onClick={() => setOpenGoalId(null)}>
-              ‹
+            <button className="goal-back" title="返回目标列表" aria-label="返回目标列表" onClick={() => setOpenGoalId(null)}>
+              <span className="chev" />
             </button>
             <div className="goal-head-info">
-              <span className="goal-head-title">{openGoal.title}</span>
-              <div className="tactical-meter-wrap">
-                <div className="meter-meta">
-                  <span>MISSION PROGRESS</span>
-                  <span>
-                    {openGoal.progress.done}/{openGoal.progress.total}
-                  </span>
-                </div>
-                {meter(openGoal.progress)}
+              <div className="goal-head-line">
+                <span className="goal-head-title">{openGoal.title}</span>
+                <span className="goal-head-nums">
+                  {openGoal.progress.done}/{openGoal.progress.total}
+                </span>
               </div>
+              <div className="goal-head-meter">{meter(openGoal.progress)}</div>
             </div>
           </div>
         ) : (
@@ -689,12 +833,43 @@ export default function App() {
                   data-hln-ui-field
                   className="adder-date"
                 />
+                {/* ◷ 只是入口:不设提醒时连输入框都不出现,不占宽度也不添复杂度 */}
+                <button
+                  type="button"
+                  className={`adder-clock${remind ? " on" : ""}`}
+                  title={remind ? `提醒 ${remind}(点击清除)` : "加一个提醒时刻"}
+                  data-hln-ui-control
+                  onClick={() => {
+                    if (remind) {
+                      setRemind("");
+                      setShowRemind(false);
+                    } else {
+                      setShowRemind(true);
+                    }
+                  }}
+                >
+                  ◷{remind ? ` ${remind}` : ""}
+                </button>
+                {showRemind && (
+                  <input
+                    type="time"
+                    className="adder-time"
+                    autoFocus
+                    value={remind}
+                    onChange={(e) => setRemind(e.target.value)}
+                    onBlur={() => {
+                      if (!remind) setShowRemind(false);
+                    }}
+                    title="提醒时刻"
+                    data-hln-ui-field
+                  />
+                )}
                 <input
                   type="text"
                   className="adder-note"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
-                  placeholder="备注(可选)"
+                  placeholder="备注"
                   data-hln-ui-field
                 />
               </div>

@@ -1,6 +1,8 @@
 node_modules/
 dist/
 build/
+temp/
+verify-evidence/
 src-tauri/gen/
 core/.venv/
 core/.pytest_cache/

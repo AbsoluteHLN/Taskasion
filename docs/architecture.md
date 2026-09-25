@@ -13,8 +13,9 @@
 │  WebView(React/TS) ──fetch──► Core REST  │
 │  taskasion-core(src-tauri/src/taskasion_core/, Rust)│
 │  TaskStore:todo.md 真相源 + 归一化 + 热加载 │
-│  REST API 127.0.0.1:14411(JSON + CORS)     │
+│  Integration API v1:REST 127.0.0.1:14411(/api/v1 与 /api)│
 │  MCP server(stdio,serde_json 手写 JSON-RPC)│
+│  reminder:进程内轮询 due+remind_time,内嵌提示音 │
 │  Audit:audit.jsonl 追加式审计             │
 └───────────────────────────────────────────┘
 ```
@@ -51,42 +52,66 @@ release/
 
 字段:`id`(8位hex,缺省时 Core 首载自动补)、`due`(YYYY-MM-DD)、`pri`(p1-p3)、`tags`(逗号分隔)、`src`(human / agent:\<name\> / external)、`created`、`done`、`note`(备注,含空格需写成引号包裹的 `note:"多词备注"`,内部 `"` 和 `\` 转义)。保存时 Core 会归一化(补 id、按 待办→已完成 排序)。**为 Agent 写文件的建议:走 MCP/REST,别手拼注释**(手改也安全,Core 会补齐)。
 
+提醒时刻以保留标签 `_remind:HH:MM` 存在 `tags` 里(如 `tags:work,_remind:14:30`),对外暴露为 `remind_time` 字段而不出现在普通标签中;旧版程序会把它当普通标签原样保留,因此新旧互通不丢数据。
+
 `goals.md` 同格式(标题即目标);任务通过标签 `goal:<goalId>` 关联到目标,Core 在 `/api/goals` 返回里实时汇总每目标 `{total, done}` 进度。
 
-## REST API(全部走 `http://127.0.0.1:14411/api`)
+## Integration API v1(REST 全部走 `http://127.0.0.1:14411/api`)
+
+`/api/v1/*` 与 `/api/*` 是同一批路由(入口剥掉 `/v1` 后交给同一 handler),旧路径保留兼容。
+完整契约见 [integration-api.md](integration-api.md)。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
 | GET | /health | 存活 + 版本 + 数据目录 |
+| GET | /capabilities | 能力自述(REST/MCP 入口、actor、字段、null 语义、提醒模型) |
 | GET | /tasks?status=all\|todo\|done&tag=x | 列表 |
-| POST | /tasks | {title, due?, priority?, tags?, note?} |
-| PATCH | /tasks/{id} | 部分更新(due/note 传 null 清空) |
+| GET | /tasks/{id} | 单个任务 |
+| POST | /tasks | {title, due?, remind_time?, priority?, tags?, note?} |
+| PATCH | /tasks/{id} | 部分更新(due/remind_time/note/priority 传 null 清空) |
 | POST | /tasks/{id}/complete · /reopen | 勾选/回退 |
 | DELETE | /tasks/{id} | 删除 |
 | GET | /audit?n=50 | 审计尾部 |
 | GET | /goals?status=all\|todo\|done | 目标列表(含 progress 进度统计) |
+| GET | /goals/{id} | 单个目标 |
 | POST | /goals | {title} |
 | PATCH | /goals/{id} | 重命名 {title} |
 | POST | /goals/{id}/complete · /reopen | 完成/重开 |
 | DELETE | /goals/{id} | 删除 |
+| GET | /plan/today | 今日规划 |
 
 身份头:`X-Taskasion-Actor`(缺省 `human`;Agent 网关建议传 `agent:<name>`)。
 
 ## MCP 工具集(stdio,设计原则:少而稳,参考 mcp-tasks)
 
+**与 REST 同源**:所有工具直接在同一份 Core 领域层上执行;字段与 Integration API v1 对齐
+(新增 `remind_time`,清空可用 `null`,旧的 `"none"` 仍接受),前 10 个工具签名与旧 Python
+FastMCP 版逐字一致。
+
 | 工具 | 签名要点 |
 |---|---|
-| `task_add` | title 必填;due/priority/tags/note 可选 |
+| `task_add` | title 必填;due/remind_time/priority/tags/note 可选 |
 | `task_list` | status=todo 默认;tag 过滤 |
-| `task_update` | 未传字段不动;清空 due/note 传 'none' |
+| `task_update` | 未传字段不动;清空 due/remind_time/note/priority 传 'none' 或 null;空串视为未传 |
 | `task_complete` / `task_reopen` | 勾选/回退 |
 | `task_delete` | 按 id |
-| `task_plan_today` | 返回 {overdue, today, next} |
-| `goal_add` | title 必填 |
-| `goal_list` | status=todo 默认;含每目标进度 |
+| `task_plan_today` | 返回 {today, overdue, today_tasks, next} |
+| `goal_add` / `goal_list` | title 必填 / status=todo 默认;含每目标进度 |
+| `goal_update` / `goal_complete` / `goal_reopen` / `goal_delete` | 重命名/达成/重开/删除 |
 | `goal_link_task` | 给 task 追加 `goal:<id>` 标签完成关联 |
+| `capabilities` | 返回 Integration API v1 能力自述 |
 
-Agent 侧接入:Claude Code / Codex 配置 `command=<Taskasion.exe 完整路径>, args=["mcp"]`,数据目录沿用 `TASKASION_DATA_DIR`(把它指到便携文件夹的 `data\` 即操作同一份真相源)。MCP 协议为 stdio 换行分隔 JSON-RPC 2.0,由 Core 用 serde_json 手写实现,不依赖任何第三方包。
+Agent 侧接入:Claude Code / Codex 配置 `command=<Taskasion.exe 完整路径>, args=["mcp", "--actor", "agent:codex"]`,数据目录沿用 `TASKASION_DATA_DIR`(把它指到便携文件夹的 `data\` 即操作同一份真相源)。`--actor` 只影响审计留痕(缺省 `agent:mcp`)。MCP 协议为 stdio 换行分隔 JSON-RPC 2.0,由 Core 用 serde_json 手写实现,不依赖任何第三方包。
+
+## 提醒调度(reminder.rs,桌面壳进程内)
+
+- 模型只有"`due` 日期 + `remind_time` 时刻,到点提醒一次":没有重复、提前 N 分钟、多级提醒、日历与设置页。
+- 每 12s 轮询一次 Core 的待办列表(`list("todo")`),命中窗口 `[到点, 到点+60s)` 才响,同一任务同一分钟只响一次;
+  错过的分钟不补响,已完成/已删除/无 `due`/无 `remind_time` 的任务自然不会响。
+- 提示音是运行时合成的 ~1.15s 柔和和弦 WAV(内存播放,`winmm` 的 `PlaySoundW`),**内嵌在 exe 里**,
+  不需要用户管理任何音频文件;同时向前端 emit `reminder-fired`,由任务行短暂高亮。
+- 调度器**只读**真相源,永不写 Markdown;提醒的持久化完全由 `todo.md` 里的 `_remind:HH:MM` 保留标签承担。
+- Bot / 群聊提醒不在这里:Core 不认识 QQ/OneBot/AstrBot,只对外提供 Integration API,由未来的 Bridge 自己轮询。
 
 ## 审计
 
@@ -100,10 +125,12 @@ Web 端接入 HLN ui-system v2.3 设计系统(作者自研引擎;构建产物快
 - `App.tsx` 根节点挂 `data-hln-ui-root` / `data-hln-ui-version="v2.3"` / `data-hln-theme`(主题键)/ `data-hln-font="display"`。HLN root 默认铺不透明 bg-0,`styles.css` 强制 `.app[data-hln-ui-root]{background:transparent}` 放穿以实现半透明玻璃;玻璃 alpha 在 `.app` 作用域覆盖 `--hln-ui-glass` / `--hln-ui-glass-strong`。
 - 控件用 `[data-hln-ui-control]`(primary/chamfer)、`[data-hln-ui-field]`、`[data-hln-ui-bar]`、`[data-hln-ui-scroll]`、`.segmented`、`.tactical-meter`;条目/面板入场用 `data-hln-motion`(item=data-stream 错峰,panel=tactical-lock);主面板与折叠迷你条均用 `data-hln-ui-no-ornament` 关闭 HLN 角饰。
 - `styles.css` 只用 HLN token/变量做布局,不自带配色常量。
+- 任务行交互:标题点一下就地改成输入框(Enter 存、Esc 撤、失焦存);备注平时不占位,悬停时在下方以只读一行露出,无备注则显示低对比的 `添加备注…`,点一下才进入编辑(悬停不抢焦点);行内 `◷` 就地设置/修改/清除提醒时刻。这些展开/收起只改布局与状态,不引入新的配色常量。
 
 ## 路线图
 
-- v0.2:鼠标穿透模式、贴边折叠动画、提醒调度(due 到点系统通知)
-- v0.3:goal(目标)对象与 task 关联;Agent 变更"待确认"队列
+- v0.2:鼠标穿透模式、贴边折叠动画、✅ 提醒调度(due + remind_time,进程内合成提示音)
+- v0.3:✅ goal(目标)对象与 task 关联;Agent 变更"待确认"队列
 - v0.4:WebDAV/文件同步;多机合并策略
+- 近期:Taskasion QQ Bridge(只走 Integration API v1;OneBot/AstrBot 适配留在 Bridge,Core 不引入任何群协议)
 - 远期:AI 解析自然语言建任务(本地 Ollama,参考 nanoSecretary);Agent 状态灯(参考 FocuSD hooks)
