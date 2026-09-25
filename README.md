@@ -50,11 +50,18 @@ cd src-tauri && cargo test
 
 ## 让 Agent 自己接入（零配置）
 
-不想手写任何客户端配置？把安装目录告诉 Agent 就够了，例如对它说：
+Taskasion 有**两层自我说明**，Agent 不需要读任何外部文档：
+
+| 层 | 入口 | 回答的问题 |
+|---|---|---|
+| **目录说明**（接入前） | 安装目录的 `AGENTS.md`，或运行 `Taskasion.exe onboarding` | "怎么连"——exe / 数据目录在哪，MCP 与 REST 两种接入方式的现成参数 |
+| **进程自述**（接入后） | MCP 的 `capabilities` 工具，或 REST `GET /api/v1/capabilities`（同一份 JSON） | "能干什么"——16 个工具、Task 字段、null 语义、提醒模型、actor 约定 |
+
+因此对 Agent 只需要说一句：
 
 > D:\Tools\Taskasion 里有 Taskasion，接入后帮我管理 todo
 
-Agent 只需在该目录运行 `Taskasion.exe onboarding`（或直接读旁边的 `AGENTS.md`），按输出以 MCP 子进程（`Taskasion.exe mcp`）或 REST（`127.0.0.1:14411/api/v1`）接入，`capabilities` 工具会自述全部工具与约定。`Taskasion.exe onboarding --write` 可在安装目录生成/刷新 `AGENTS.md`（Claude Code / Codex / ZCode 会自动读取）。
+Agent 会读 `AGENTS.md`（Claude Code / Codex / ZCode 进入目录时自动读取；也可让它运行 `Taskasion.exe onboarding`）→ 按 MCP 子进程（`Taskasion.exe mcp`）或 REST（`127.0.0.1:14411/api/v1`）连上 → 调 `capabilities` 拿到完整契约后开始工作。`Taskasion.exe onboarding --write` 可生成/刷新安装目录的 `AGENTS.md`；两层说明指向同一份契约（[docs/integration-api.md](docs/integration-api.md)），不会漂移。
 
 更多设计细节见 [docs/architecture.md](docs/architecture.md)（todo.md 数据格式契约、路由表、MCP 工具集）与 [docs/integration-api.md](docs/integration-api.md)（REST/MCP 统一契约、null 语义、actor 约定、给 Bot Bridge 预留的接口），以及 [docs/research.md](docs/research.md)（立项前的竞品调研）。
 

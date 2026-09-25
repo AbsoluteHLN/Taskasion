@@ -131,11 +131,18 @@ human · agent:codex · agent:deepseek · agent:claude · agent:mcp · bot:qq ·
 - 未列入的取值不会被拒绝(自由文本),但建议沿用上表。
 - 外部直接编辑 `todo.md` 时,Core 热加载后记为 `actor=external`。
 
-## 6. 能力自述
+## 6. 能力自述与发现路径
 
-`GET /api/v1/capabilities`(MCP 的 `capabilities` 工具返回同一份结构)给出:REST/MCP 入口与
-端口、actor 清单、Task 字段与 null 语义、提醒模型、真相源文件、本文档路径。集成方应读它而不是
-写死清单——两端共用一份描述,不会漂移。
+Agent 有**两个互补的发现入口**，分别回答"怎么连"和"连上后能干什么"：
+
+1. **目录说明（接入前）**：安装目录的 `AGENTS.md`（由 `Taskasion.exe onboarding --write` 生成，
+   主流 Agent 客户端自动读取），或直接运行 `Taskasion.exe onboarding` —— 给出 exe/数据目录、
+   widget 运行状态，以及 MCP / REST 两种接入方式的现成参数。
+2. **进程自述（接入后）**：`GET /api/v1/capabilities` 与 MCP 的 `capabilities` 工具返回**同一份**
+   JSON：REST/MCP 入口与端口、actor 约定、Task 字段与 null 语义、提醒模型、真相源文件、本文档
+   路径。集成方应读它而不是写死清单——REST 与 MCP 共用一份描述，不会漂移。
+
+两层指向同一份契约（本文档）：目录说明负责引导接入，进程自述负责接入后的完整行为约定。
 
 ## 7. MCP 工具(16 个)
 
