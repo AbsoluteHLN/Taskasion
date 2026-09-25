@@ -25,9 +25,24 @@ Core 领域层(`TaskStore` / `GoalStore`),不存在"REST 一套、MCP 一套"。
 Taskasion.exe mcp [--data-dir DIR] [--actor NAME]
 ```
 
-- 换行分隔 JSON-RPC 2.0,`initialize` / `ping` / `tools/list` / `tools/call`;日志只走 stderr。
-- 缺省 actor `agent:mcp`;`--actor agent:codex` 让"谁改的"在审计里可分辨。
+- 换行分隔 JSON-RPC 2.0,`initialize` / `ping` / `tools/list` / `tools/call`。
+- `initialize` 返回 `instructions` 使用说明,并声明 `capabilities`(`tools` + `logging`);
+  运行日志经 `notifications/message` 同步给客户端(stderr 保留)。
+- `tools/call` 结果 **text + structuredContent 双写**(两者是同一个 JSON 值);
+  业务失败 `isError:true` 且 `structuredContent.error` 带错误码(`not_found`/`invalid`/`internal`);
+  未知工具 → 协议错误 `-32602`(对齐规范示例);工具定义带规范 `annotations`
+  (只读/危险/幂等提示,客户端可据此分级放行)。
+- 缺省 actor `agent:mcp`;`--actor agent:codex` 显式指定。**解析顺序**:
+  `--actor` > env `TASKASION_MCP_ACTOR` > `clientInfo.name` 派生(如 `agent:mcp:codex`)>
+  `agent:mcp` —— 不传也能在审计里区分不同客户端。
 - Agent 配置:`command = <Taskasion.exe 完整路径>`,`args = ["mcp", "--actor", "agent:codex"]`。
+
+### 零配置自助接入(推荐给 Agent)
+
+不写任何客户端配置也能接:用户只说"某目录下有 Taskasion",Agent 在该目录运行
+`Taskasion.exe onboarding` —— 输出 exe/数据目录/widget 状态与两种接入方式的现成参数;
+`onboarding --write` 会把同等内容写成安装目录的 `AGENTS.md`(主流 Agent 客户端自动读取),
+之后"告知目录 = 完成接入"。两种接入方式都通过 `capabilities` 自述,不依赖本文档。
 
 ## 2. 路径
 
@@ -112,7 +127,7 @@ human · agent:codex · agent:deepseek · agent:claude · agent:mcp · bot:qq ·
 ```
 
 - REST:头 `X-Taskasion-Actor`,缺省 `human`。
-- MCP:`--actor`,缺省 `agent:mcp`。
+- MCP:解析顺序 `--actor` > env `TASKASION_MCP_ACTOR` > `clientInfo.name` 派生(`agent:mcp:<name>`)> 缺省 `agent:mcp`。
 - 未列入的取值不会被拒绝(自由文本),但建议沿用上表。
 - 外部直接编辑 `todo.md` 时,Core 热加载后记为 `actor=external`。
 
@@ -122,21 +137,24 @@ human · agent:codex · agent:deepseek · agent:claude · agent:mcp · bot:qq ·
 端口、actor 清单、Task 字段与 null 语义、提醒模型、真相源文件、本文档路径。集成方应读它而不是
 写死清单——两端共用一份描述,不会漂移。
 
-## 7. MCP 工具
+## 7. MCP 工具(16 个)
 
 | 工具 | 要点 |
 |---|---|
-| `task_add` | title 必填;due/remind_time/priority/tags/note 可选 |
-| `task_list` | status 默认 `todo`;tag 过滤 |
+| `task_add` | title 必填;due/remind_time/priority/tags/note 可选;`goal_id` 传目标 id 则创建即关联 |
+| `task_list` | status 默认 `todo`;tag 过滤;`query` 按标题/备注子串过滤(大小写不敏感) |
 | `task_update` | 未传字段不动;清空传 `null` 或旧写法 `"none"` |
 | `task_complete` / `task_reopen` / `task_delete` | 按 `task_id` |
 | `task_plan_today` | `{today, overdue, today_tasks, next}` |
 | `goal_add` / `goal_list` | title 必填 / status 默认 `todo`,含 progress |
 | `goal_update` | 重命名 `{goal_id, title}` |
 | `goal_complete` / `goal_reopen` / `goal_delete` | 达成 / 重开 / 删除 |
-| `goal_link_task` | 给任务追加 `goal:<id>` 标签 |
+| `goal_link_task` | 给任务追加 `goal:<id>` 标签(幂等) |
+| `goal_unlink_task` | 移除任务的 `goal:<id>` 标签(幂等) |
 | `capabilities` | 同 `/api/v1/capabilities` |
 
+annotations 约定:`task_list` / `task_plan_today` / `goal_list` / `capabilities` 标只读;
+`task_delete` / `goal_delete` 标危险;完成/回退/关联类标幂等;全部 `openWorldHint:false`。
 前 10 个工具的签名与旧 Python FastMCP 版逐字一致,旧调用无需改动。
 
 ## 8. 给 Bot Bridge 预留的接口(尚未实现)

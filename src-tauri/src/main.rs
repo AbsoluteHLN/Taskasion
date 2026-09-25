@@ -93,10 +93,36 @@ fn run_cli(args: &[String]) -> bool {
             }
             true
         }
+        Some("onboarding") => {
+            // Agent 自助接入:打印接入信息;--write 额外在安装目录生成 AGENTS.md。
+            // 用户只需告知 Agent"某目录下有 Taskasion",Agent 跑这条命令即可自行接入。
+            let exe = std::env::current_exe()
+                .unwrap_or_else(|_| std::path::PathBuf::from("Taskasion.exe"));
+            let dir = exe.parent().map(|d| d.to_path_buf()).unwrap_or_default();
+            let data = dir.join("data");
+            let alive = taskasion_core::onboarding::widget_port_alive();
+            print!(
+                "{}",
+                taskasion_core::onboarding::onboarding_text(
+                    &exe,
+                    &data,
+                    alive,
+                    taskasion_core::VERSION
+                )
+            );
+            if args.iter().any(|a| a == "--write") {
+                let path = dir.join("AGENTS.md");
+                match std::fs::write(&path, taskasion_core::onboarding::agents_md(&exe, &data)) {
+                    Ok(()) => println!("\n已生成 {}", path.display()),
+                    Err(e) => eprintln!("写入 {} 失败: {e}", path.display()),
+                }
+            }
+            true
+        }
         Some("mcp") => {
             let mut data_dir = taskasion_core::rest::default_data_dir();
-            // --actor 只影响审计留痕;不给就沿用历史默认值 agent:mcp
-            let mut actor = "agent:mcp".to_string();
+            // --actor 显式指定审计身份;不给(空串)则由会话按 env / clientInfo.name 派生
+            let mut actor = String::new();
             let mut i = 1;
             while i < args.len() {
                 match args[i].as_str() {

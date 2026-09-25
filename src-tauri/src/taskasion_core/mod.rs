@@ -7,6 +7,7 @@
 pub mod audit;
 pub mod mcp;
 pub mod models;
+pub mod onboarding;
 pub mod rest;
 pub mod store;
 

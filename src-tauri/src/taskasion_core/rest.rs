@@ -220,21 +220,25 @@ fn write_response(stream: &mut TcpStream, code: u16, payload: Option<&Value>) {
         204 => "No Content",
         400 => "Bad Request",
         404 => "Not Found",
+        405 => "Method Not Allowed",
         500 => "Internal Server Error",
         _ => "OK",
     };
     let body = payload.map(|v| serde_json::to_vec(v).unwrap_or_default()).unwrap_or_default();
-    let head = format!(
-        "HTTP/1.1 {} {}\r\n\
+    let mut head = format!(
+        "HTTP/1.1 {code} {reason}\r\n\
          Content-Type: application/json; charset=utf-8\r\n\
-         Content-Length: {}\r\n\
-         Access-Control-Allow-Origin: *\r\n\
+         Content-Length: {}\r\n",
+        body.len(),
+    );
+    if code == 405 {
+        head.push_str("Allow: GET, POST, PATCH, DELETE, OPTIONS\r\n");
+    }
+    head.push_str(
+        "Access-Control-Allow-Origin: *\r\n\
          Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS\r\n\
          Access-Control-Allow-Headers: Content-Type, X-Taskasion-Actor\r\n\
          Connection: close\r\n\r\n",
-        code,
-        reason,
-        body.len(),
     );
     let _ = stream.write_all(head.as_bytes());
     let _ = stream.write_all(&body);
@@ -297,11 +301,13 @@ pub(crate) fn capabilities(core: &Core) -> Value {
             "transport": "stdio",
             "entry": "Taskasion.exe mcp [--data-dir DIR] [--actor NAME]",
             "default_actor": "agent:mcp",
+            "actor_resolution": "--actor > env TASKASION_MCP_ACTOR > clientInfo.name 派生(agent:mcp:<name>) > agent:mcp",
+            "features": ["instructions", "structured_content", "annotations", "log_notifications"],
         },
         "actors": KNOWN_ACTORS,
         "capabilities": {
             "task": ["list", "get", "add", "update", "complete", "reopen", "delete"],
-            "goal": ["list", "get", "add", "update", "complete", "reopen", "delete", "link_task"],
+            "goal": ["list", "get", "add", "update", "complete", "reopen", "delete", "link_task", "unlink_task"],
             "plan": ["today"],
             "audit": ["tail"],
             "reminder": {
@@ -318,7 +324,7 @@ pub(crate) fn capabilities(core: &Core) -> Value {
             "done": "bool",
             "due": "YYYY-MM-DD | null",
             "remind_time": "HH:MM | null",
-            "priority": "high | mid | low | null",
+            "priority": "p1 | p2 | p3 | null",
             "tags": "string[]",
             "note": "string | null",
             "source": "string | null",
@@ -377,7 +383,13 @@ fn dispatch(core: &Core, req: &Request, body: Option<Value>) -> (u16, Option<Val
         "POST" => handle_post(core, req, body),
         "PATCH" => handle_patch(core, req, body),
         "DELETE" => handle_delete(core, req),
-        _ => Ok((404, Some(json!({ "error": "not_found" })))),
+        _ => {
+            if req.path == "/api" || req.path.starts_with("/api/") {
+                // 已知 API 前缀 + 不支持的方法 → 405(Allow 头由 write_response 附带)
+                return (405, None);
+            }
+            return (404, Some(json!({ "error": "not_found" })));
+        }
     };
     match result {
         Ok(reply) => reply,
@@ -716,6 +728,20 @@ mod tests {
         assert_eq!(health.0, 200);
         assert_eq!(body_of(&health)["ok"], json!(true));
         assert_eq!(body_of(&health)["version"], json!(VERSION));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn unsupported_methods_get_405_on_api_but_404_elsewhere() {
+        let dir = tmp_dir("405");
+        let core = Core::open(&dir);
+        // 已知 API 前缀 + 路由表之外的方法 → 405(不再是伪装的 404)
+        assert_eq!(call(&core, "PUT", "/api/v1/tasks", None).0, 405);
+        assert_eq!(call(&core, "PUT", "/api/tasks", None).0, 405);
+        // OPTIONS 仍直接 204(CORS 预检)
+        assert_eq!(call(&core, "OPTIONS", "/api/v1/tasks", None).0, 204);
+        // API 前缀之外的未知路径,方法再对不上也是 404
+        assert_eq!(call(&core, "PUT", "/definitely-not-api", None).0, 404);
         let _ = fs::remove_dir_all(&dir);
     }
 }

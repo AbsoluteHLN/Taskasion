@@ -9,9 +9,9 @@
 Taskasion 是 Windows 桌面上的**置顶悬浮 todo/goal 小组件**,产品哲学是"人看,Agent 管":
 
 - **本地优先**:所有状态就是两个 Markdown 文件 `todo.md` / `goals.md`(唯一真相源),人可以用任何编辑器直接改,外部修改即时生效。
-- **Agent 原生**:内置 MCP server(stdio,15 个工具)供 Claude Code / Codex 等直接接管增删改查;也可走本机 Integration API v1(REST,`/api/v1` 与历史 `/api` 同一套实现)。每一次变更(人、Agent、外部编辑)都记入追加式审计日志 `audit.jsonl`。
+- **Agent 原生**:内置 MCP server(stdio,16 个工具,带 instructions / structuredContent / annotations)供 Claude Code / Codex / ZCode 等直接接管增删改查;也可走本机 Integration API v1(REST,`/api/v1` 与历史 `/api` 同一套实现)。每一次变更(人、Agent、外部编辑)都记入追加式审计日志 `audit.jsonl`。
 - **单文件即全部**:Rust core 并入 Tauri 壳同进程,发行物是一个约 3.4MB 的 `Taskasion.exe` + 同级 `data\` 目录,免安装、无注册表、删除即卸载。
-- 当前:v1.1.0 正式版(2026-09-24 发布)。1.1.0 线完成了 core 从 Python 移植为 Rust、单 exe、自动更新、DPI/对齐/跑马灯等 UI 打磨。数据格式与 Python 版(≤v1.0.1-aStart)双向兼容。
+- 当前:已发布 v1.1.0(2026-09-24)与 v1.1.1(2026-09-25,提醒 + Integration API v1 + 标题备注交互);v1.3.0(MCP 接入质量)开发中,计划见 `dev-docs/plan-v1.3.0.md`。数据格式与 Python 版(≤v1.0.1-aStart)双向兼容。
 
 ## 2. 总体架构
 
@@ -44,14 +44,15 @@ Taskasion 是 Windows 桌面上的**置顶悬浮 todo/goal 小组件**,产品哲
 
 | 文件 | 行数 | 职责 |
 |---|---|---|
-| `src-tauri/src/main.rs` | 238 | Tauri 壳入口:窗口/托盘/快捷键/CLI 分发(`serve` / `mcp --data-dir --actor`)/check_update 与 apply_update 命令、core 线程启动(`serve_shared`)、reminder 线程启动、启动定位 |
+| `src-tauri/src/main.rs` | 264 | Tauri 壳入口:窗口/托盘/快捷键/CLI 分发(`serve` / `mcp --data-dir --actor` / `onboarding [--write]`)/check_update 与 apply_update 命令、core 线程启动(`serve_shared`)、reminder 线程启动、启动定位 |
+| `src-tauri/src/taskasion_core/onboarding.rs` | 109 | Agent 自助接入:`onboarding` 文本与 AGENTS.md 模板的纯函数生成器 + 14411 端口探测;2 个单测 |
 | `src-tauri/src/update.rs` | 413 | 自动更新全管线 + 语义化版本比较 + WinINET 代理回退;7 个单测 |
 | `src-tauri/src/reminder.rs` | 409 | 提醒调度:12s 轮询、命中去重、运行时合成 WAV 提示音(winmm `PlaySoundW`)、`reminder-fired` 事件;11 个单测(7 纯函数 + 4 真文件端到端) |
 | `src-tauri/src/taskasion_core/mod.rs` | 12 | 模块声明;`VERSION = env!("CARGO_PKG_VERSION")` |
 | `…/models.rs` | 374 | Task 结构(含 `remind_time`);todo.md 行级 parse/render;`_remind:HH:MM` 保留标签剥离/写回;id/时间戳生成;7 个单测 |
 | `…/store.rs` | 821 | TaskStore/GoalStore:mtime 热加载、归一化、原子写、全部增删改查语义;`remind_time` 校验;14 个单测 |
 | `…/rest.rs` | 721 | 手写 HTTP/1.1 server;Integration API v1(`/api/v1` 与 `/api` 同一 handler)/状态码/CORS/`capabilities`;`Core` 装配结构;6 个单测 |
-| `…/mcp.rs` | 495 | stdio JSON-RPC 2.0;15 个工具的 schema 与分发;`--actor` 审计留痕;空串=未传、`"none"`/null=清空;5 个单测 |
+| `…/mcp.rs` | 1041 | stdio JSON-RPC 2.0;表驱动工具注册表(16 个工具,schema + annotations 单一事实来源);会话化协议层(instructions / actor 派生链 / notifications:message 日志 / text+structuredContent 双写 / 未知工具 -32602);空串=未传、`"none"`/null=清空;16 个单测 |
 | `…/audit.rs` | 101 | 追加式审计 audit.jsonl;tail 读取;1 个单测 |
 | `src/main.tsx` | 12 | 先 import HLN 引擎 CSS,再业务样式,挂 React 根 |
 | `src/App.tsx` | 881 | 全部 UI:双视图(任务/目标)、输入行(含 `◷` 提醒)、标题/备注就地编辑、列表、折叠迷你条、拖拽、更新按钮、`reminder-fired` 高亮 |
@@ -153,21 +154,23 @@ Taskasion 是 Windows 桌面上的**置顶悬浮 todo/goal 小组件**,产品哲
 
 独立运行:`Taskasion.exe mcp [--data-dir <dir>] [--actor <name>]`(无 Tauri,挂回父终端;数据目录缺省 `%USERPROFILE%\.taskasion`,`TASKASION_DATA_DIR` 覆盖)。协议是 **newline-delimited JSON-RPC 2.0**(serde_json 手写):
 
-- `initialize` → 回显客户端 protocolVersion + `serverInfo{name:"taskasion",version}`;`ping` → `{}`;`tools/list` → 15 个工具;`tools/call` → 结果 `{content:[{type:"text",text:<JSON 字符串>}],isError}`(业务错误也是 200 响应但 isError=true);通知(无 id)不回包;未知方法 → -32601;日志只走 stderr。
-- actor 由 `--actor` 决定(缺省 `agent:mcp`),只影响审计留痕;MCP 与 REST 调的是同一批领域函数。
+- `initialize` → 回显客户端 protocolVersion + `serverInfo{name:"taskasion",version}` + `instructions` 使用说明,声明 `capabilities`(tools+logging);`ping` → `{}`;`tools/list` → 16 个工具(带 annotations);`tools/call` → 结果 **text + structuredContent 双写**(同一个 JSON 值;业务错误 isError=true 且 `structuredContent.error` 带错误码 `not_found`/`invalid`/`internal`);未知工具 → 协议错误 **-32602**;通知(无 id)不回包;未知方法 → -32601;日志经 `notifications/message` 同步(stderr 保留)。
+- actor 解析顺序:`--actor` 显式 > env `TASKASION_MCP_ACTOR` > `clientInfo.name` 派生(如 `agent:mcp:codex`,名字清洗为字母数字与 `-_.`) > 缺省 `agent:mcp`;MCP 与 REST 调的是同一批领域函数。
 
 | 工具 | 参数 | 备注 |
 |---|---|---|
-| task_add | title 必填;due(YYYY-MM-DD)/remind_time(HH:MM)/priority(p1-p3)/tags[]/note | |
-| task_list | status=todo 缺省(all/done);tag 过滤 | |
+| task_add | title 必填;due(YYYY-MM-DD)/remind_time(HH:MM)/priority(p1-p3)/tags[]/note;goal_id 可选(创建即关联) | |
+| task_list | status=todo 缺省(all/done);tag 过滤;query 按标题/备注子串过滤(大小写不敏感) | |
 | task_update | task_id 必填;未传字段不动;**清空 due/remind_time/note/priority 传字符串 'none' 或 null**;**空串=未传(老 Agent 习惯)** | |
 | task_complete / task_reopen / task_delete | task_id | |
 | task_plan_today | 无 | 同 REST plan_today |
 | goal_add | title | |
 | goal_list | status=todo 缺省 | 含实时 progress |
-| goal_link_task | goal_id + task_id | 给任务追加 `goal:<id>` 标签(已存在则幂等) |
+| goal_link_task / goal_unlink_task | goal_id + task_id | 追加/移除 `goal:<id>` 标签(均幂等) |
 | goal_update / goal_complete / goal_reopen / goal_delete | goal_id(+title) | 与 REST 对等 |
 | capabilities | 无 | 返回 Integration API v1 能力自述(与 `/api/v1/capabilities` 同一份) |
+
+annotations 约定:`task_list`/`task_plan_today`/`goal_list`/`capabilities` 只读;`task_delete`/`goal_delete` 危险;完成/回退/关联类幂等;全部 `openWorldHint:false`。
 
 MCP 无 resources/prompts/sampling/进度通知;桌面壳运行时,MCP 子进程与壳**通过同一个文件**(真相源)间接同步,不共享内存。
 
@@ -226,7 +229,7 @@ MCP 无 resources/prompts/sampling/进度通知;桌面壳运行时,MCP 子进程
 # 前端(本机注意:node_modules 是 junction,不要让 pnpm 碰它,直接调 vite)
 node_modules/.bin/vite build          # 或 pnpm build(有触发 junction 清空的风险,见 dependency-map.md)
 
-# 测试(51 个单测:store 14 / models 7 / update 7 / rest 6 / mcp 5 / reminder 11 / audit 1)
+# 测试(65 个单测:store 14 / models 7 / update 7 / rest 7 / mcp 16 / reminder 11 / onboarding 2 / audit 1)
 cd src-tauri && cargo test
 
 # 桌面 exe(先杀运行中的实例,否则 os error 5)
