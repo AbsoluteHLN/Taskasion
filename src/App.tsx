@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent, type MouseEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
@@ -85,7 +85,108 @@ function applyWindowSize([w, h]: [number, number]) {
   }
 }
 
+// 滚轮调时刻:HH:MM ± minutes(上加下减),环绕 24 小时
+function nudgeTime(value: string, minutes: number): string {
+  const [h, m] = value.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(h) || Number.isNaN(m)) return value;
+  const total = (((h * 60 + m + minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// "22:06" / "2206" / "9:5" → "22:06";空串 → ""(删除提醒);无法解析 → null(按取消处理)
+function normalizeTime(raw: string): string | null {
+  const v = raw.trim().replace("：", ":");
+  if (!v) return "";
+  let h: number;
+  let m: number;
+  if (v.includes(":")) {
+    const [hs, ms] = v.split(":");
+    if (!/^\d{1,2}$/.test(hs) || !/^\d{1,2}$/.test(ms)) return null;
+    h = Number(hs);
+    m = Number(ms);
+  } else if (/^\d{4}$/.test(v)) {
+    h = Number(v.slice(0, 2));
+    m = Number(v.slice(2));
+  } else {
+    return null;
+  }
+  if (h > 23 || m > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+// 时刻滚轮输入框:纯文本(type=time 的原生弹层在无边框置顶小窗里不可靠,图标还挤占宽度)。
+// 滚轮上下 ±5 分钟;回车/失焦提交(自动规范化),Esc 取消恢复原值。
+function WheelTime(props: {
+  className: string;
+  title: string;
+  initial: string;
+  onCommit: (v: string) => void;
+  onCancel: () => void;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+  const latest = useRef(props);
+  latest.current = props;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cur = el.value || latest.current.initial || nowLocalTime().slice(0, 5);
+      el.value = nudgeTime(cur.slice(0, 5), e.deltaY < 0 ? 5 : -5);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  const commit = () => {
+    const v = normalizeTime(ref.current?.value ?? "");
+    if (v === null) latest.current.onCancel();
+    else latest.current.onCommit(v);
+  };
+  return (
+    <input
+      ref={ref}
+      type="text"
+      inputMode="numeric"
+      maxLength={5}
+      placeholder="--:--"
+      className={props.className}
+      title={props.title}
+      autoFocus
+      defaultValue={props.initial}
+      data-hln-ui-field
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") latest.current.onCancel();
+      }}
+      onBlur={commit}
+    />
+  );
+}
+
 const PRI_CYCLE: Record<string, string> = { "": "p1", p1: "p2", p2: "p3", p3: "" };
+
+// 分组折叠偏好:未完成/已完成(含目标页的已完成)各自记住展开状态,重启后保持
+const boolPref = (key: string, fallback: boolean) => {
+  try {
+    const v = localStorage.getItem(key);
+    return v === null ? fallback : v === "1";
+  } catch {
+    return fallback;
+  }
+};
+const flipPref =
+  (key: string, set: (fn: (v: boolean) => boolean) => void) => () =>
+    set((v) => {
+      const n = !v;
+      try {
+        localStorage.setItem(key, n ? "1" : "0");
+      } catch {
+        // 隐私模式等存储不可用时静默降级为会话内状态
+      }
+      return n;
+    });
 
 export default function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -95,12 +196,17 @@ export default function App() {
   const [due, setDue] = useState(todayLocal());
   const [pri, setPri] = useState("");
   const [note, setNote] = useState("");
-  // 提醒:与日期同一行。◷ 只是入口,时刻输入框按需展开(默认不占位)
+  // 提醒:与日期同一行。◷ 只是入口,时刻输入按需展开(顶替备注框,不换行)
   const [remind, setRemind] = useState("");
   const [showRemind, setShowRemind] = useState(false);
+  const remindBeforeEdit = useRef(""); // Esc 恢复用:打开时刻框那一刻的值
   const [goalTitle, setGoalTitle] = useState("");
   const [filter, setFilter] = useState<"today" | "all">("today");
-  const [showDone, setShowDone] = useState(false);
+  // 未完成/今日完成/归档 三段折叠:默认未完成与今日完成展开、归档收起;各自状态持久化
+  const [showPending, setShowPending] = useState(() => boolPref("taskasion.tasksPending.open", true));
+  const [showDoneToday, setShowDoneToday] = useState(() => boolPref("taskasion.tasksTodayDone.open", true));
+  const [showArchive, setShowArchive] = useState(() => boolPref("taskasion.tasksArchive.open", false));
+  const [showDone, setShowDone] = useState(() => boolPref("taskasion.goalsDone.open", false));
   const [collapsed, setCollapsed] = useState(false);
   const [offline, setOffline] = useState(false);
   const [openGoalId, setOpenGoalId] = useState<string | null>(null);
@@ -199,6 +305,15 @@ export default function App() {
     if (openGoal) return tasks.filter((t) => t.done && t.tags.includes(`goal:${openGoal.id}`));
     return tasks.filter((t) => t.done);
   }, [tasks, openGoal]);
+
+  // 今日完成 vs 归档:按 done_at 是否为今天分家;归档只在「全部」和目标详情出现,
+  // 「今天」视图里过去完成的没有存在意义
+  const shownDoneToday = useMemo(
+    () => shownDone.filter((t) => (t.done_at ?? "").slice(0, 10) === todayLocal()),
+    [shownDone],
+  );
+  const shownArchive = useMemo(() => shownDone.filter((t) => (t.done_at ?? "").slice(0, 10) !== todayLocal()), [shownDone]);
+  const archiveVisible = openGoal ? true : filter === "all";
 
   const submitTask = async (e: FormEvent) => {
     e.preventDefault();
@@ -453,22 +568,15 @@ export default function App() {
         {d && <span className={`due${d.overdue ? " over" : ""}`}>{d.text}</span>}
         {!t.done &&
           (editingRemind ? (
-            <input
+            <WheelTime
               className="remind-edit"
-              type="time"
-              autoFocus
-              defaultValue={t.remind_time ?? ""}
-              title="提醒时刻(清空即删除提醒)"
-              data-hln-ui-field
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") e.currentTarget.blur();
-                else if (e.key === "Escape") {
-                  cancelEdit.current = true;
-                  setEditingRemindId(null);
-                }
+              title="提醒时刻(框内滚轮上下 ±5 分钟;键入 22:06 / 2206 / 9:5 均可;清空并离开 = 删除提醒)"
+              initial={t.remind_time ?? ""}
+              onCommit={(v) => saveRemind(t, v)}
+              onCancel={() => {
+                cancelEdit.current = true;
+                setEditingRemindId(null);
               }}
-              onBlur={(e) => saveRemind(t, e.currentTarget.value)}
             />
           ) : (
             // 有提醒时是常显的 ◷ 14:30;没有时是幽灵 ◷,悬停行才亮,点开即设
@@ -747,7 +855,7 @@ export default function App() {
               ))}
               {doneGoals.length > 0 && (
                 <>
-                  <li className="section" onClick={() => setShowDone(!showDone)}>
+                  <li className="section" onClick={flipPref("taskasion.goalsDone.open", setShowDone)}>
                     <span>已完成 {doneGoals.length}</span>
                     <span className="caret">{showDone ? "▾" : "▸"}</span>
                   </li>
@@ -833,36 +941,36 @@ export default function App() {
                   data-hln-ui-field
                   className="adder-date"
                 />
-                {/* ◷ 只是入口:不设提醒时连输入框都不出现,不占宽度也不添复杂度 */}
-                <button
-                  type="button"
-                  className={`adder-clock${remind ? " on" : ""}`}
-                  title={remind ? `提醒 ${remind}(点击清除)` : "加一个提醒时刻"}
-                  data-hln-ui-control
-                  onClick={() => {
-                    if (remind) {
-                      setRemind("");
-                      setShowRemind(false);
-                    } else {
-                      setShowRemind(true);
-                    }
-                  }}
-                >
-                  ◷{remind ? ` ${remind}` : ""}
-                </button>
-                {showRemind && (
-                  <input
-                    type="time"
+                {/* ◷ 与时刻框同槽互换:打开=输入框占按钮位(备注框常在,零布局跳动);
+                    回车/点外提交并自动规范化,Esc 恢复打开前的时刻。 */}
+                {showRemind ? (
+                  <WheelTime
                     className="adder-time"
-                    autoFocus
-                    value={remind}
-                    onChange={(e) => setRemind(e.target.value)}
-                    onBlur={() => {
-                      if (!remind) setShowRemind(false);
+                    title="提醒时刻(框内滚轮上下 ±5 分钟;键入 22:06 / 2206 / 9:5 均可;Esc 取消)"
+                    initial={remind}
+                    onCommit={(v) => {
+                      setRemind(v);
+                      setShowRemind(false);
                     }}
-                    title="提醒时刻"
-                    data-hln-ui-field
+                    onCancel={() => {
+                      setRemind(remindBeforeEdit.current);
+                      setShowRemind(false);
+                    }}
                   />
+                ) : (
+                  <button
+                    type="button"
+                    className={`adder-clock${remind ? " on" : ""}`}
+                    title={remind ? `提醒 ${remind}(点击修改;清空输入并离开 = 不提醒)` : "加一个提醒时刻"}
+                    data-hln-ui-control
+                    onClick={() => {
+                      remindBeforeEdit.current = remind;
+                      setShowRemind(true);
+                    }}
+                  >
+                    <span className="clock-glyph">◷</span>
+                    {remind && <span className="clock-time">{remind}</span>}
+                  </button>
                 )}
                 <input
                   type="text"
@@ -875,28 +983,41 @@ export default function App() {
               </div>
             </form>
             <ul className="list" data-hln-ui-scroll>
-              {shown.map(taskRow)}
-              {shownDone.length > 0 && (
-                <>
-                  <li className="section" onClick={() => setShowDone(!showDone)}>
-                    <span>已完成 {shownDone.length}</span>
-                    <span className="caret">{showDone ? "▾" : "▸"}</span>
-                  </li>
-                  {showDone && shownDone.map(taskRow)}
-                </>
-              )}
-              {shown.length === 0 && !(showDone && shownDone.length > 0) && (
-                <li className="empty">
-                  <span className="empty-code">// NO ENTRY</span>
-                  {shownDone.length > 0
-                    ? "没有进行中的任务"
-                    : openGoal
-                      ? "该目标下还没有任务"
-                      : filter === "today"
-                        ? "今天没有安排,去「全部」看看"
-                        : "还没有任务,输入后回车添加"}
+              {shown.length > 0 && (
+                <li className="section" onClick={flipPref("taskasion.tasksPending.open", setShowPending)}>
+                  <span>未完成 {shown.length}</span>
+                  <span className="caret">{showPending ? "▾" : "▸"}</span>
                 </li>
               )}
+              {showPending && shown.map(taskRow)}
+              {shownDoneToday.length > 0 && (
+                <li className="section" onClick={flipPref("taskasion.tasksTodayDone.open", setShowDoneToday)}>
+                  <span>今日完成 {shownDoneToday.length}</span>
+                  <span className="caret">{showDoneToday ? "▾" : "▸"}</span>
+                </li>
+              )}
+              {showDoneToday && shownDoneToday.map(taskRow)}
+              {archiveVisible && shownArchive.length > 0 && (
+                <li className="section" onClick={flipPref("taskasion.tasksArchive.open", setShowArchive)}>
+                  <span>归档 {shownArchive.length}</span>
+                  <span className="caret">{showArchive ? "▾" : "▸"}</span>
+                </li>
+              )}
+              {archiveVisible && showArchive && shownArchive.map(taskRow)}
+              {shown.length === 0 &&
+                !(showDoneToday && shownDoneToday.length > 0) &&
+                !(archiveVisible && showArchive && shownArchive.length > 0) && (
+                  <li className="empty">
+                    <span className="empty-code">// NO ENTRY</span>
+                    {shownDoneToday.length > 0 || (archiveVisible && shownArchive.length > 0)
+                      ? "没有进行中的任务"
+                      : openGoal
+                        ? "该目标下还没有任务"
+                        : filter === "today"
+                          ? "今天没有安排,去「全部」看看"
+                          : "还没有任务,输入后回车添加"}
+                  </li>
+                )}
             </ul>
           </>
         )}

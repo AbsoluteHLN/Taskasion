@@ -196,7 +196,7 @@ MCP 无 resources/prompts/sampling/进度通知;桌面壳运行时,MCP 子进程
 
 ## 9. 前端
 
-- **状态模型**(App.tsx):`tasks/goals/view(tasks|goals)/title/due/pri/note/goalTitle/filter(today|all)/showDone/collapsed/offline/openGoalId/editingNoteId/remind/showRemind/editingTitleId/editingRemindId/firedId/upd(更新状态)`。无路由、无全局 store、无状态库。
+- **状态模型**(App.tsx):`tasks/goals/view(tasks|goals)/title/due/pri/note/goalTitle/filter(today|all)/showPending+showDoneToday+showArchive+showDone(四段折叠,各自 localStorage 持久)/collapsed/offline/openGoalId/editingNoteId/editingTitleId/editingRemindId/firedId/upd(更新状态)`。无路由、无全局 store、无状态库。时刻选择用 WheelTime 纯文本组件(滚轮 ±5 分钟,提交时规范化;不用原生 type=time,规避小窗内的原生弹层)。
 - **数据获取**:`useEffect` 每 1500ms 轮询 `fetchTasks()+fetchGoals()`;失败置 `offline`(头部 OFFLINE 灯)。所有变更操作后手动 `refresh()`。核心数据**不靠事件推送**;唯一的 Tauri 事件是 `update-status`(自动更新)与 `reminder-fired`(任务行 5s 高亮)。
 - **任务行交互**:标题点击→就地输入框(Enter 存 / Esc 撤 / 失焦存,`stopPropagation` 防止冒泡到行的"打开备注");备注默认不占位,悬停时在行下方以只读一行露出,无备注则显示低对比 `添加备注…`(悬停不抢焦点),点击才进入编辑;编辑中鼠标移出不会收起;内容清空即删除备注。`noteClosed`/`titleClosed`/`cancelEdit` 三个 ref 用来避免"失焦保存"与"紧接着的点击"互相打架。
 - **提醒入口**:新建区 `◷` 按钮展开 `type="time"` 输入(不占常驻空间);已有任务在行内用 `◷` / `◷ 14:30` 就地设置、修改或清除(无日期时自动绑定今天,时刻已过则绑到明天)。

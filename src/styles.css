@@ -263,14 +263,23 @@ body,
   min-height: 30px;
   padding: 0 8px;
   font-family: var(--hln-ui-font-technical);
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
   color: var(--hln-ui-text-faint);
   cursor: pointer;
 }
 
+/* ◷ 字形笔画细,单独放大;时刻文本保持小字,按钮才不会把备注框挤扁 */
+.adder .adder-clock .clock-glyph {
+  font-size: 14px;
+  line-height: 1;
+}
+
 .adder .adder-clock:not(.on) {
-  opacity: 0.55;
+  opacity: 0.75;
 }
 
 .adder .adder-clock:hover {
@@ -283,13 +292,16 @@ body,
   border-color: color-mix(in srgb, var(--hln-ui-accent) 45%, transparent);
 }
 
+/* 时刻框与 ◷ 按钮同槽互换(宽度一致,零布局跳动);纯文本输入,无原生弹层 */
 .adder .adder-time {
-  width: 92px;
   flex: none;
+  width: 64px;
   min-height: 30px;
-  padding: 0 6px;
+  padding: 0 4px;
+  text-align: center;
   font-family: var(--hln-ui-font-technical);
-  font-size: 10px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   color-scheme: dark;
 }
 
@@ -508,10 +520,10 @@ li.done .note-line {
   background: transparent;
   border: none;
   font-family: var(--hln-ui-font-technical);
-  font-size: 10px;
+  font-size: 13px;
   line-height: 1;
   position: relative;
-  top: 1px; /* 与 .due 同一套 10px 基线下移找齐 */
+  top: 0;
   color: var(--hln-ui-accent);
   cursor: pointer;
   transition: all var(--hln-ui-duration-fast) ease;
@@ -519,11 +531,11 @@ li.done .note-line {
 
 .remind-btn:not([data-set]) {
   color: var(--hln-ui-text-faint);
-  opacity: 0.28;
+  opacity: 0.55;
 }
 
 li.task-row:hover .remind-btn:not([data-set]) {
-  opacity: 0.8;
+  opacity: 0.95;
 }
 
 .remind-btn:hover {
@@ -707,6 +719,17 @@ li:hover .del { opacity: 0.75; }
 }
 
 /* 折叠分组行 */
+/* 列表滚动条隐藏(HLN 引擎 tactical scrollbar 本地关闭):滚轮照常滚,右侧零占位 */
+.list[data-hln-ui-scroll] {
+  scrollbar-width: none;
+}
+.list[data-hln-ui-scroll]::-webkit-scrollbar,
+.list[data-hln-ui-scroll]::-webkit-scrollbar-thumb,
+.list[data-hln-ui-scroll]::-webkit-scrollbar-track {
+  display: none;
+  width: 0;
+}
+
 .section {
   display: flex;
   align-items: center;
