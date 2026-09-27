@@ -326,8 +326,9 @@ body,
   gap: 4px;
 }
 
-/* 任务条目:左侧战术导轨 + 悬停点亮 */
+/* 任务条目:左侧战术导轨 + 悬停点亮。position:relative 供悬停小面板抬层 */
 .task-row {
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -342,6 +343,7 @@ body,
 }
 
 .task-row:hover {
+  z-index: 5; /* 悬停行抬高:⚠/◷ 的小面板要盖住相邻行 */
   border-left-color: var(--hln-ui-accent);
   background: color-mix(in srgb, var(--hln-ui-bg-2) 86%, transparent);
 }
@@ -512,7 +514,41 @@ li.done .note-line {
   font-weight: 700;
 }
 
-/* 提醒时刻:列表里只留一个轻量的 ◷ 14:30。
+/* 悬停小面板:超时日期与提醒时刻收进 ⚠/◷ 图标,悬停才弹出;
+   指到左侧以免被列表上下边缘裁切,pointer-events:none 保证不挡点击 */
+.mini-pop {
+  position: absolute;
+  right: calc(100% + 6px);
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 6;
+  padding: 3px 7px;
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  color: var(--hln-ui-text-muted);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 94%, transparent);
+  border: 1px solid var(--hln-ui-line);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--hln-ui-duration-fast) ease;
+}
+
+.due:hover .mini-pop,
+.remind-btn:hover .mini-pop {
+  opacity: 1;
+}
+
+.due.over:hover .mini-pop {
+  color: var(--hln-ui-danger);
+}
+
+.remind-btn[data-set] .mini-pop {
+  color: var(--hln-ui-accent);
+}
+
+/* 提醒时刻:行内只留一个 ◷ 图标(时刻在悬停小面板里)。
    没有提醒时是幽灵 ◷(悬停行才亮),点开即设 —— 有/无都用同一个按钮,不给两套交互。 */
 .remind-btn {
   flex: none;

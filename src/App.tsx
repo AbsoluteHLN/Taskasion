@@ -21,7 +21,8 @@ import {
 
 function dueLabel(due: string): { text: string; overdue: boolean } {
   const today = todayLocal();
-  if (due < today) return { text: `⚠ ${due.slice(5)}`, overdue: true };
+  // 超时只留红色 ⚠,具体日期收进悬停小面板(行内空间留给内容)
+  if (due < today) return { text: "⚠", overdue: true };
   if (due === today) return { text: "今天", overdue: false };
   return { text: due.slice(5), overdue: false };
 }
@@ -565,7 +566,12 @@ export default function App() {
         ) : (
           <MarqueeTitle text={t.title} onClick={startTitleEdit(t)} />
         )}
-        {d && <span className={`due${d.overdue ? " over" : ""}`}>{d.text}</span>}
+        {d && (
+          <span className={`due${d.overdue ? " over" : ""}`}>
+            {d.text}
+            {d.overdue && <span className="mini-pop">{t.due?.slice(5)}</span>}
+          </span>
+        )}
         {!t.done &&
           (editingRemind ? (
             <WheelTime
@@ -579,17 +585,18 @@ export default function App() {
               }}
             />
           ) : (
-            // 有提醒时是常显的 ◷ 14:30;没有时是幽灵 ◷,悬停行才亮,点开即设
+            // 幽灵 ◷ 悬停行才亮;设了提醒时图标旁悬停弹小面板看时刻,行内不再排时刻文本
             <button
               className="remind-btn"
               data-set={t.remind_time ? "" : undefined}
-              title={t.remind_time ? `提醒 ${t.remind_time}(点击修改,清空即删除)` : "设置提醒时刻"}
+              title={t.remind_time ? "点击修改,清空并离开 = 删除提醒" : "设置提醒时刻"}
               onClick={(e) => {
                 e.stopPropagation();
                 setEditingRemindId(t.id);
               }}
             >
-              ◷{t.remind_time ? ` ${t.remind_time}` : ""}
+              ◷
+              {t.remind_time && <span className="mini-pop">{t.remind_time}</span>}
             </button>
           ))}
         <button
