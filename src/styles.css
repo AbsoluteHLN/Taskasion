@@ -41,6 +41,39 @@ body,
   --hln-ui-panel-highlight: none;
 }
 
+/* ---------- 浅色主题柔光(悬浮窗本地调校,不触碰 v3 主题定义) ----------
+   v3 浅色面按"浅底浅页"设计,bg-1/bg-2 直近纯白;悬浮窗直接浮在任意桌面上,
+   夜间整面近白很刺眼。这里在悬浮窗作用域内把三个浅色主题的 bg 整体向冷灰
+   压暗 ~10%(行/输入框/空态全部同源变柔),玻璃提到 86% 减透光躁动,
+   阴影略加深稳住浅面板的落地感;文字仍是深色,对比度不降。
+   色值引用各主题在 hln-v3-themes.css 里的原始 bg,避免 var 自引用成环。 */
+.app[data-hln-theme="drafting-paper"] {
+  --hln-ui-bg-0: color-mix(in srgb, #eef1ee 88%, #26313a);
+  --hln-ui-bg-1: color-mix(in srgb, #f8faf7 88%, #2a3540);
+  --hln-ui-bg-2: color-mix(in srgb, #ffffff 84%, #2e3942);
+}
+
+.app[data-hln-theme="bauhaus-grid"] {
+  --hln-ui-bg-0: color-mix(in srgb, #efece4 88%, #26313a);
+  --hln-ui-bg-1: color-mix(in srgb, #f9f7f1 88%, #2a3540);
+  --hln-ui-bg-2: color-mix(in srgb, #ffffff 84%, #2e3942);
+}
+
+.app[data-hln-theme="cartesian-emerald"] {
+  --hln-ui-bg-0: color-mix(in srgb, #e8f0ec 88%, #26313a);
+  --hln-ui-bg-1: color-mix(in srgb, #f4f9f6 88%, #2a3540);
+  --hln-ui-bg-2: color-mix(in srgb, #ffffff 84%, #2e3942);
+}
+
+.app[data-hln-theme="drafting-paper"],
+.app[data-hln-theme="bauhaus-grid"],
+.app[data-hln-theme="cartesian-emerald"] {
+  --hln-ui-glass: color-mix(in srgb, var(--hln-ui-bg-1) 86%, transparent);
+  --hln-ui-panel-bg: color-mix(in srgb, var(--hln-ui-bg-1) 86%, transparent);
+  --hln-ui-glass-strong: color-mix(in srgb, var(--hln-ui-bg-2) 92%, transparent);
+  --hln-ui-shadow: 0 3px 12px rgb(0 0 0 / 26%);
+}
+
 /* 背景动画层(tactical-grid 点阵漂移)限制在面板足迹内,不污染桌面边距 */
 .app[data-hln-ui-root][data-hln-bg-motion]::before,
 .app[data-hln-ui-root][data-hln-bg-motion]::after {
