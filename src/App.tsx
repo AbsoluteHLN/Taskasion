@@ -168,6 +168,31 @@ function WheelTime(props: {
 
 const PRI_CYCLE: Record<string, string> = { "": "p1", p1: "p2", p2: "p3", p3: "" };
 
+// KalciriteUI v3 的 9 套 Euclidean 主题(vendor/hln-ui-system-v2.3/hln-v3-themes.css);
+// 托盘"更换主题"菜单与本地持久化共用这份清单
+const THEME_IDS = [
+  "euclidean-cyan",
+  "isometric-amber",
+  "drafting-paper",
+  "bauhaus-grid",
+  "cartesian-emerald",
+  "graphite-polygon",
+  "polar-cobalt",
+  "hypercube-violet",
+  "axiom-mono",
+] as const;
+const DEFAULT_THEME = "euclidean-cyan";
+
+// 旧 v2.3 主题名按色相族迁到 v3 对应主题,升级后观感连续
+const LEGACY_THEMES: Record<string, string> = {
+  "abyss-aegir": "euclidean-cyan",
+  arknights: "hypercube-violet",
+  babel: "polar-cobalt",
+  blacksteel: "graphite-polygon",
+  endfield: "isometric-amber",
+  "monster-siren": "cartesian-emerald",
+};
+
 // 分组折叠偏好:未完成/已完成(含目标页的已完成)各自记住展开状态,重启后保持
 const boolPref = (key: string, fallback: boolean) => {
   try {
@@ -254,6 +279,46 @@ export default function App() {
     return () => {
       unlisten?.();
       if (timer) window.clearTimeout(timer);
+    };
+  }, []);
+
+  // 主题:托盘"更换主题"子菜单经 set-theme 事件切换根节点的 data-hln-theme,
+  // localStorage 持久,下次启动保持
+  const [theme, setTheme] = useState<string>(() => {
+    try {
+      const t = localStorage.getItem("taskasion.theme");
+      if (t && (THEME_IDS as readonly string[]).includes(t)) return t;
+      // 旧版本存的是 v2.3 主题名:迁到 v3 同色相主题并回写
+      const legacy = t ? LEGACY_THEMES[t] : undefined;
+      if (legacy) {
+        try {
+          localStorage.setItem("taskasion.theme", legacy);
+        } catch {
+          // 存储不可用时仅会话内生效
+        }
+        return legacy;
+      }
+      return DEFAULT_THEME;
+    } catch {
+      return DEFAULT_THEME;
+    }
+  });
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<string>("set-theme", (e) => {
+      const t = e.payload;
+      if (!t || !(THEME_IDS as readonly string[]).includes(t)) return;
+      setTheme(t);
+      try {
+        localStorage.setItem("taskasion.theme", t);
+      } catch {
+        // 存储不可用时仅会话内生效
+      }
+    })
+      .then((fn) => (unlisten = fn))
+      .catch(() => {});
+    return () => {
+      unlisten?.();
     };
   }, []);
 
@@ -510,7 +575,8 @@ export default function App() {
     await refresh();
   };
 
-  const taskRow = (t: Task, idx: number) => {
+  // group = 从折叠组展开出来的行:入场改走本地 iso-shift(对角滑入),与普通行的 data-stream 区分
+  const taskRow = (t: Task, idx: number, group = false) => {
     const d = t.done ? null : t.due ? dueLabel(t.due) : null;
     const editing = editingNoteId === t.id;
     const editingTitle = editingTitleId === t.id;
@@ -521,7 +587,8 @@ export default function App() {
         className={`task-row${t.done ? " done" : ""}`}
         data-hln-motion="item"
         data-hln-motion-state="enter"
-        data-hln-motion-variant="data-stream"
+        data-hln-motion-variant={group ? undefined : "data-stream"}
+        data-group-enter={group ? "" : undefined}
         data-fired={firedId === t.id ? "" : undefined}
         style={motionItem(idx)}
         onClick={() => {
@@ -682,7 +749,7 @@ export default function App() {
       <div
         className="app collapsed"
         data-hln-ui-root
-        data-hln-theme="arknights"
+        data-hln-theme={theme}
         data-hln-font="display"
         onPointerDown={miniPointerDown}
         onPointerMove={miniPointerMove}
@@ -715,16 +782,20 @@ export default function App() {
     </div>
   );
 
+  // 视图键:任务/目标/目标详情/筛选切换时,列表与输入行重挂载,触发 page-shift 滑入
+  const viewKey =
+    view === "goals" && !openGoal ? "goals" : openGoal ? `goal-${openGoalId}` : `tasks-${filter}`;
+
   return (
     <div
       className="app"
       data-hln-ui-root
       data-hln-ui-version="v2.3"
-      data-hln-theme="arknights"
+      data-hln-theme={theme}
       data-hln-font="display"
-      data-hln-bg-motion="tactical-grid"
+      data-hln-bg-motion={openGoal ? "golden-spiral" : "euclidean-grid"}
     >
-      <div className="panel" data-hln-ui-surface data-hln-ui-no-ornament data-hln-motion="panel" data-hln-motion-state="enter" data-hln-motion-variant="tactical-lock">
+      <div className="panel" data-hln-ui-surface data-hln-motion="panel" data-hln-motion-state="enter" data-hln-motion-variant="vector-construct">
         <header
           className="head"
           data-hln-ui-bar
@@ -768,7 +839,7 @@ export default function App() {
         {view === "goals" && openGoal ? (
           // 目标详情头部:压到约 40px 一行半。返回做成带边框的 26×26 方块 + CSS 箭头,
           // 比原来的 ‹ 字符更大更明确(字符在不同字体下粗细/位置不可控)。
-          <div className="goal-head" data-tauri-drag-region>
+          <div className="goal-head" data-tauri-drag-region key={`goal-head-${openGoalId}`}>
             <button className="goal-back" title="返回目标列表" aria-label="返回目标列表" onClick={() => setOpenGoalId(null)}>
               <span className="chev" />
             </button>
@@ -807,7 +878,7 @@ export default function App() {
 
         {view === "goals" && !openGoal ? (
           <>
-            <form className="adder" onSubmit={submitGoal}>
+            <form className="adder" onSubmit={submitGoal} key={`adder-${viewKey}`}>
               <input
                 type="text"
                 value={goalTitle}
@@ -819,7 +890,7 @@ export default function App() {
                 ＋
               </button>
             </form>
-            <ul className="list" data-hln-ui-scroll>
+            <ul className="list" data-hln-ui-scroll key={`list-${viewKey}`}>
               {activeGoals.map((g, i) => (
                 <li
                   key={g.id}
@@ -873,7 +944,7 @@ export default function App() {
                         className="goal-row done"
                         data-hln-motion="item"
                         data-hln-motion-state="enter"
-                        data-hln-motion-variant="data-stream"
+                        data-group-enter=""
                         style={motionItem(i)}
                       >
                         <button
@@ -919,7 +990,7 @@ export default function App() {
           </>
         ) : (
           <>
-            <form className="adder" onSubmit={submitTask}>
+            <form className="adder" onSubmit={submitTask} key={`adder-${viewKey}`}>
               <input
                 type="text"
                 value={title}
@@ -989,28 +1060,28 @@ export default function App() {
                 />
               </div>
             </form>
-            <ul className="list" data-hln-ui-scroll>
+            <ul className="list" data-hln-ui-scroll key={`list-${viewKey}`}>
               {shown.length > 0 && (
                 <li className="section" onClick={flipPref("taskasion.tasksPending.open", setShowPending)}>
                   <span>未完成 {shown.length}</span>
                   <span className="caret">{showPending ? "▾" : "▸"}</span>
                 </li>
               )}
-              {showPending && shown.map(taskRow)}
+              {showPending && shown.map((t, i) => taskRow(t, i))}
               {shownDoneToday.length > 0 && (
                 <li className="section" onClick={flipPref("taskasion.tasksTodayDone.open", setShowDoneToday)}>
                   <span>今日完成 {shownDoneToday.length}</span>
                   <span className="caret">{showDoneToday ? "▾" : "▸"}</span>
                 </li>
               )}
-              {showDoneToday && shownDoneToday.map(taskRow)}
+              {showDoneToday && shownDoneToday.map((t, i) => taskRow(t, i, true))}
               {archiveVisible && shownArchive.length > 0 && (
                 <li className="section" onClick={flipPref("taskasion.tasksArchive.open", setShowArchive)}>
                   <span>归档 {shownArchive.length}</span>
                   <span className="caret">{showArchive ? "▾" : "▸"}</span>
                 </li>
               )}
-              {archiveVisible && showArchive && shownArchive.map(taskRow)}
+              {archiveVisible && showArchive && shownArchive.map((t, i) => taskRow(t, i, true))}
               {shown.length === 0 &&
                 !(showDoneToday && shownDoneToday.length > 0) &&
                 !(archiveVisible && showArchive && shownArchive.length > 0) && (

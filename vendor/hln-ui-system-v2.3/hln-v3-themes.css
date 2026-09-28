@@ -1,0 +1,372 @@
+/* ProjectHLN UI System v3.0 - Euclidean Vector Flat Themes
+   9 Mathematical, Numerical & Vector-Flat Themes (6 Dark Vector Planes + 3 Light Architectural/Bauhaus Planes).
+   All themes enforce --hln-ui-blur: 0px and crisp geometric offset shadows. */
+
+/* ==========================================================================
+   1. EUCLIDEAN CYAN - Canonical Dark Vector Coordinate Plane
+   ========================================================================== */
+:root[data-hln-theme="euclidean-cyan"],
+[data-hln-theme="euclidean-cyan"],
+[data-theme="euclidean-cyan"] {
+  --hln-ui-bg-0: #0b0f14;
+  --hln-ui-bg-1: #121820;
+  --hln-ui-bg-2: #19222d;
+  --hln-ui-glass: rgb(18 24 32 / 72%);
+  --hln-ui-panel-bg: rgb(18 24 32 / 72%);
+  --hln-ui-glass-strong: rgb(22 30 40 / 80%);
+  --hln-ui-glass-soft: rgb(18 24 32 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 8%);
+  --hln-ui-line: #283646;
+  --hln-ui-line-strong: #00d4ff;
+  --hln-ui-text: #f0f5fa;
+  --hln-ui-text-muted: #8ca0b5;
+  --hln-ui-text-faint: #586c82;
+  --hln-ui-accent: #00d4ff;
+  --hln-ui-accent-strong: #7be8ff;
+  --hln-ui-accent-cool: #3b82f6;
+  --hln-ui-accent-secondary: #ff5533;
+  --hln-ui-amber: #f5c400;
+  --hln-ui-danger: #ff3355;
+  --hln-ui-success: #00d68f;
+  --hln-ui-focus: #00d4ff;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(0 212 255 / 22%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 6%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(0 212 255 / 6%) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(0deg, rgb(0 212 255 / 6%) 1px, transparent 1px) 0 0 / 32px 32px;
+  --hln-ui-grid-line: color-mix(in srgb, #00d4ff 18%, transparent);
+  --hln-ui-tactical-corner: #00d4ff;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   2. ISOMETRIC AMBER - Isometric Vector Lattice (Signal Gold & Matte Slate)
+   ========================================================================== */
+:root[data-hln-theme="isometric-amber"],
+[data-hln-theme="isometric-amber"],
+[data-theme="isometric-amber"] {
+  --hln-ui-bg-0: #0c1014;
+  --hln-ui-bg-1: #141b22;
+  --hln-ui-bg-2: #1d2731;
+  --hln-ui-glass: rgb(20 27 34 / 72%);
+  --hln-ui-panel-bg: rgb(20 27 34 / 72%);
+  --hln-ui-glass-strong: rgb(26 35 44 / 80%);
+  --hln-ui-glass-soft: rgb(20 27 34 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 8%);
+  --hln-ui-line: #2e3d4a;
+  --hln-ui-line-strong: #f5c400;
+  --hln-ui-text: #f4f7f9;
+  --hln-ui-text-muted: #90a4b4;
+  --hln-ui-text-faint: #5b7080;
+  --hln-ui-accent: #f5c400;
+  --hln-ui-accent-strong: #ffe066;
+  --hln-ui-accent-cool: #00d4ff;
+  --hln-ui-accent-secondary: #ff5722;
+  --hln-ui-amber: #f5c400;
+  --hln-ui-danger: #ff3b4e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #f5c400;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(245 196 0 / 24%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(30deg, rgb(245 196 0 / 6%) 1px, transparent 1px) 0 0 / 28px 48px,
+    linear-gradient(150deg, rgb(245 196 0 / 6%) 1px, transparent 1px) 0 0 / 28px 48px;
+  --hln-ui-grid-line: color-mix(in srgb, #f5c400 20%, transparent);
+  --hln-ui-tactical-corner: #f5c400;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   3. DRAFTING PAPER - Architectural Drafting Vellum (Light Vector Plane)
+   ========================================================================== */
+:root[data-hln-theme="drafting-paper"],
+[data-hln-theme="drafting-paper"],
+[data-theme="drafting-paper"] {
+  --hln-ui-bg-0: #eef1ee;
+  --hln-ui-bg-1: #f8faf7;
+  --hln-ui-bg-2: #ffffff;
+  --hln-ui-glass: rgb(248 250 247 / 74%);
+  --hln-ui-panel-bg: rgb(248 250 247 / 74%);
+  --hln-ui-glass-strong: rgb(255 255 255 / 82%);
+  --hln-ui-glass-soft: rgb(248 250 247 / 66%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 90%);
+  --hln-ui-line: #b8c5c0;
+  --hln-ui-line-strong: #0d746e;
+  --hln-ui-text: #111c21;
+  --hln-ui-text-muted: #4b5f66;
+  --hln-ui-text-faint: #758990;
+  --hln-ui-accent: #0d746e;
+  --hln-ui-accent-strong: #085450;
+  --hln-ui-accent-cool: #0284c7;
+  --hln-ui-accent-secondary: #d9480f;
+  --hln-ui-amber: #b45309;
+  --hln-ui-danger: #be123c;
+  --hln-ui-success: #0d746e;
+  --hln-ui-focus: #0d746e;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(17 28 33 / 14%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 #ffffff;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(13 116 110 / 7.5%) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(0deg, rgb(13 116 110 / 7.5%) 1px, transparent 1px) 0 0 / 32px 32px;
+  --hln-ui-grid-line: color-mix(in srgb, #0d746e 20%, transparent);
+  --hln-ui-tactical-corner: #0d746e;
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   4. BAUHAUS GRID - Swiss Constructivist Triad (Ultramarine, Carmine, Chalk)
+   ========================================================================== */
+:root[data-hln-theme="bauhaus-grid"],
+[data-hln-theme="bauhaus-grid"],
+[data-theme="bauhaus-grid"] {
+  --hln-ui-bg-0: #efece4;
+  --hln-ui-bg-1: #f9f7f1;
+  --hln-ui-bg-2: #ffffff;
+  --hln-ui-glass: rgb(249 247 241 / 74%);
+  --hln-ui-panel-bg: rgb(249 247 241 / 74%);
+  --hln-ui-glass-strong: rgb(255 255 255 / 82%);
+  --hln-ui-glass-soft: rgb(249 247 241 / 66%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 85%);
+  --hln-ui-line: #b5b0a4;
+  --hln-ui-line-strong: #1d4ed8;
+  --hln-ui-text: #141416;
+  --hln-ui-text-muted: #52514e;
+  --hln-ui-text-faint: #7d7b76;
+  --hln-ui-accent: #1d4ed8;
+  --hln-ui-accent-strong: #1e3a8a;
+  --hln-ui-accent-cool: #0284c7;
+  --hln-ui-accent-secondary: #e11d48;
+  --hln-ui-amber: #d97706;
+  --hln-ui-danger: #e11d48;
+  --hln-ui-success: #059669;
+  --hln-ui-focus: #1d4ed8;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(20 20 22 / 16%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 #ffffff;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(20 20 22 / 7.5%) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(0deg, rgb(20 20 22 / 7.5%) 1px, transparent 1px) 0 0 / 40px 40px;
+  --hln-ui-grid-line: color-mix(in srgb, #1d4ed8 20%, transparent);
+  --hln-ui-tactical-corner: #1d4ed8;
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   5. CARTESIAN EMERALD - Precision Parametric Geometry (Light Clinical Emerald)
+   ========================================================================== */
+:root[data-hln-theme="cartesian-emerald"],
+[data-hln-theme="cartesian-emerald"],
+[data-theme="cartesian-emerald"] {
+  --hln-ui-bg-0: #e8f0ec;
+  --hln-ui-bg-1: #f4f9f6;
+  --hln-ui-bg-2: #ffffff;
+  --hln-ui-glass: rgb(244 249 246 / 74%);
+  --hln-ui-panel-bg: rgb(244 249 246 / 74%);
+  --hln-ui-glass-strong: rgb(255 255 255 / 82%);
+  --hln-ui-glass-soft: rgb(244 249 246 / 66%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 90%);
+  --hln-ui-line: #b2c7bc;
+  --hln-ui-line-strong: #059669;
+  --hln-ui-text: #10241b;
+  --hln-ui-text-muted: #466356;
+  --hln-ui-text-faint: #6f8c7f;
+  --hln-ui-accent: #059669;
+  --hln-ui-accent-strong: #047857;
+  --hln-ui-accent-cool: #0891b2;
+  --hln-ui-accent-secondary: #d97706;
+  --hln-ui-amber: #d97706;
+  --hln-ui-danger: #dc2626;
+  --hln-ui-success: #059669;
+  --hln-ui-focus: #059669;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(16 36 27 / 14%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 #ffffff;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(5 150 105 / 7.5%) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(0deg, rgb(5 150 105 / 7.5%) 1px, transparent 1px) 0 0 / 24px 24px;
+  --hln-ui-grid-line: color-mix(in srgb, #059669 20%, transparent);
+  --hln-ui-tactical-corner: #059669;
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   6. GRAPHITE POLYGON - Orthogonal Polygon Flat (Carbon Matte & Vector Orange)
+   ========================================================================== */
+:root[data-hln-theme="graphite-polygon"],
+[data-hln-theme="graphite-polygon"],
+[data-theme="graphite-polygon"] {
+  --hln-ui-bg-0: #0c0d10;
+  --hln-ui-bg-1: #15171c;
+  --hln-ui-bg-2: #1f2229;
+  --hln-ui-glass: rgb(21 23 28 / 72%);
+  --hln-ui-panel-bg: rgb(21 23 28 / 72%);
+  --hln-ui-glass-strong: rgb(26 29 36 / 80%);
+  --hln-ui-glass-soft: rgb(21 23 28 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 7%);
+  --hln-ui-line: #323642;
+  --hln-ui-line-strong: #ff6b00;
+  --hln-ui-text: #f3f4f6;
+  --hln-ui-text-muted: #989eae;
+  --hln-ui-text-faint: #636978;
+  --hln-ui-accent: #ff6b00;
+  --hln-ui-accent-strong: #ff9447;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-accent-secondary: #facc15;
+  --hln-ui-amber: #ff6b00;
+  --hln-ui-danger: #ef4444;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #ff6b00;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(255 107 0 / 24%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 6%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(45deg, rgb(255 107 0 / 6%) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(-45deg, rgb(255 107 0 / 6%) 1px, transparent 1px) 0 0 / 24px 24px;
+  --hln-ui-grid-line: color-mix(in srgb, #ff6b00 20%, transparent);
+  --hln-ui-tactical-corner: #ff6b00;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   7. POLAR COBALT - Polar Locus Geometry (Deep Cobalt & Vector Aqua)
+   ========================================================================== */
+:root[data-hln-theme="polar-cobalt"],
+[data-hln-theme="polar-cobalt"],
+[data-theme="polar-cobalt"] {
+  --hln-ui-bg-0: #061018;
+  --hln-ui-bg-1: #0b1b28;
+  --hln-ui-bg-2: #11273a;
+  --hln-ui-glass: rgb(11 27 40 / 72%);
+  --hln-ui-panel-bg: rgb(11 27 40 / 72%);
+  --hln-ui-glass-strong: rgb(14 34 51 / 80%);
+  --hln-ui-glass-soft: rgb(11 27 40 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 9%);
+  --hln-ui-line: #1c3d58;
+  --hln-ui-line-strong: #00e5bf;
+  --hln-ui-text: #effcfa;
+  --hln-ui-text-muted: #7da6c2;
+  --hln-ui-text-faint: #4d738e;
+  --hln-ui-accent: #00e5bf;
+  --hln-ui-accent-strong: #80ffea;
+  --hln-ui-accent-cool: #00a8ff;
+  --hln-ui-accent-secondary: #6366f1;
+  --hln-ui-amber: #f59e0b;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #00e5bf;
+  --hln-ui-focus: #00e5bf;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(0 229 191 / 22%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(0 229 191 / 6%) 1px, transparent 1px) 0 0 / 36px 36px,
+    linear-gradient(0deg, rgb(0 229 191 / 6%) 1px, transparent 1px) 0 0 / 36px 36px;
+  --hln-ui-grid-line: color-mix(in srgb, #00e5bf 20%, transparent);
+  --hln-ui-tactical-corner: #00e5bf;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   8. HYPERCUBE VIOLET - Non-Euclidean Manifold Topology (Deep Indigo & Violet)
+   ========================================================================== */
+:root[data-hln-theme="hypercube-violet"],
+[data-hln-theme="hypercube-violet"],
+[data-theme="hypercube-violet"] {
+  --hln-ui-bg-0: #090712;
+  --hln-ui-bg-1: #120f22;
+  --hln-ui-bg-2: #1c1733;
+  --hln-ui-glass: rgb(18 15 34 / 72%);
+  --hln-ui-panel-bg: rgb(18 15 34 / 72%);
+  --hln-ui-glass-strong: rgb(23 19 43 / 80%);
+  --hln-ui-glass-soft: rgb(18 15 34 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 8%);
+  --hln-ui-line: #312854;
+  --hln-ui-line-strong: #9d4edd;
+  --hln-ui-text: #f6f4ff;
+  --hln-ui-text-muted: #9d92c4;
+  --hln-ui-text-faint: #675c8f;
+  --hln-ui-accent: #9d4edd;
+  --hln-ui-accent-strong: #c77dff;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-accent-secondary: #f43f5e;
+  --hln-ui-amber: #fbbf24;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #34d399;
+  --hln-ui-focus: #9d4edd;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(157 78 221 / 24%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(157 78 221 / 6.5%) 1px, transparent 1px) 0 0 / 32px 32px,
+    linear-gradient(0deg, rgb(157 78 221 / 6.5%) 1px, transparent 1px) 0 0 / 32px 32px;
+  --hln-ui-grid-line: color-mix(in srgb, #9d4edd 20%, transparent);
+  --hln-ui-tactical-corner: #9d4edd;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   9. AXIOM MONO - Monochrome Vector Ink (Pure Mathematical Chalk & Obsidian)
+   ========================================================================== */
+:root[data-hln-theme="axiom-mono"],
+[data-hln-theme="axiom-mono"],
+[data-theme="axiom-mono"] {
+  --hln-ui-bg-0: #0b0c0e;
+  --hln-ui-bg-1: #141619;
+  --hln-ui-bg-2: #1e2126;
+  --hln-ui-glass: rgb(20 22 25 / 72%);
+  --hln-ui-panel-bg: rgb(20 22 25 / 72%);
+  --hln-ui-glass-strong: rgb(25 28 32 / 80%);
+  --hln-ui-glass-soft: rgb(20 22 25 / 64%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 8%);
+  --hln-ui-line: #363b42;
+  --hln-ui-line-strong: #e2e8f0;
+  --hln-ui-text: #f8fafc;
+  --hln-ui-text-muted: #94a3b8;
+  --hln-ui-text-faint: #64748b;
+  --hln-ui-accent: #e2e8f0;
+  --hln-ui-accent-strong: #ffffff;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-accent-secondary: #f43f5e;
+  --hln-ui-amber: #eab308;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #34d399;
+  --hln-ui-focus: #e2e8f0;
+  --hln-ui-blur: 0px;
+  --hln-ui-vector-shadow-color: rgb(226 232 240 / 20%);
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: inset 0 1px 0 rgb(255 255 255 / 8%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(90deg, rgb(226 232 240 / 5.5%) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgb(226 232 240 / 5.5%) 1px, transparent 1px) 0 0 / 28px 28px;
+  --hln-ui-grid-line: color-mix(in srgb, #e2e8f0 18%, transparent);
+  --hln-ui-tactical-corner: #e2e8f0;
+  color-scheme: dark;
+}

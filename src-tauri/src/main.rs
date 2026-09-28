@@ -7,8 +7,9 @@ mod update;
 
 use std::sync::Arc;
 
-use tauri::menu::{Menu, MenuItem};
+use tauri::menu::{Menu, MenuItem, Submenu};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::Emitter;
 use tauri::Manager;
 use tauri_plugin_global_shortcut::{Builder as ShortcutBuilder, ShortcutState};
 
@@ -222,25 +223,61 @@ fn main() {
             let toggle = MenuItem::with_id(app, "toggle", "显示 / 隐藏", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "检查更新", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出 Taskasion", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&toggle, &update, &quit])?;
+            // 更换主题子菜单:与 vendor/hln-ui-system-v2.3/hln-v3-themes.css 的 9 套
+            // v3 Euclidean 主题一致;选中后发 set-theme 事件给前端,
+            // 由前端换根节点 data-hln-theme 并持久化
+            let themes: [(&str, &str); 9] = [
+                ("euclidean-cyan", "Euclidean Cyan"),
+                ("isometric-amber", "Isometric Amber"),
+                ("drafting-paper", "Drafting Paper"),
+                ("bauhaus-grid", "Bauhaus Grid"),
+                ("cartesian-emerald", "Cartesian Emerald"),
+                ("graphite-polygon", "Graphite Polygon"),
+                ("polar-cobalt", "Polar Cobalt"),
+                ("hypercube-violet", "Hypercube Violet"),
+                ("axiom-mono", "Axiom Mono"),
+            ];
+            let mut theme_items = Vec::new();
+            for (id, label) in themes {
+                theme_items.push(MenuItem::with_id(
+                    app,
+                    format!("theme-{id}"),
+                    label,
+                    true,
+                    None::<&str>,
+                )?);
+            }
+            let theme_refs: Vec<&dyn tauri::menu::IsMenuItem<tauri::Wry>> = theme_items
+                .iter()
+                .map(|m| m as &dyn tauri::menu::IsMenuItem<tauri::Wry>)
+                .collect();
+            let theme_menu = Submenu::with_id_and_items(app, "theme", "更换主题", true, &theme_refs)?;
+            let menu = Menu::with_items(app, &[&toggle, &theme_menu, &update, &quit])?;
             TrayIconBuilder::with_id("taskasion-tray")
                 .icon(app.default_window_icon().expect("missing window icon").clone())
                 .tooltip("Taskasion — Ctrl+Shift+Space 显示/隐藏")
                 .menu(&menu)
                 .show_menu_on_left_click(false)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "toggle" => toggle_main(app),
-                    "update" => {
-                        // 检查更新并把窗口带出来,结果体现在头部更新按钮上
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
-                        let handle = app.clone();
-                        std::thread::spawn(move || update::check_and_emit(&handle));
+                .on_menu_event(|app, event| {
+                    // 更换主题:theme-<id> → 把主题 id 发给前端(前端换 data-hln-theme 并持久化)
+                    if let Some(theme) = event.id.as_ref().strip_prefix("theme-") {
+                        let _ = app.emit_to("main", "set-theme", theme.to_string());
+                        return;
                     }
-                    "quit" => app.exit(0),
-                    _ => {}
+                    match event.id.as_ref() {
+                        "toggle" => toggle_main(app),
+                        "update" => {
+                            // 检查更新并把窗口带出来,结果体现在头部更新按钮上
+                            if let Some(win) = app.get_webview_window("main") {
+                                let _ = win.show();
+                                let _ = win.set_focus();
+                            }
+                            let handle = app.clone();
+                            std::thread::spawn(move || update::check_and_emit(&handle));
+                        }
+                        "quit" => app.exit(0),
+                        _ => {}
+                    }
                 })
                 .on_tray_icon_event(|tray, event| {
                     // 左键单击托盘图标 = 显示/隐藏悬浮窗

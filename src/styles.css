@@ -26,16 +26,19 @@ body,
   background: transparent;
 }
 
-/* ---------- 半透明玻璃:下调 HLN 玻璃令牌,桌面透出 ----------
-   透明度不能压太低:桌面内容会从文字后面透出来,看起来像字体发虚。
-   68% 已被实测判定"虚化偏重",抬到 76% 保读感,仍留透光。 */
-.app[data-hln-theme="arknights"] {
-  --hln-ui-glass: rgb(11 16 22 / 76%);
-  --hln-ui-panel-bg: rgb(11 16 22 / 76%);
-  --hln-ui-glass-strong: rgb(17 24 32 / 86%);
-  /* 引擎默认 0 10px 30px/50% 的投影远超窗体 6px 透明边距,会被硬切成一圈怪异的黑边;
-     收紧为贴地小阴影,完整落在透明边距内(150% DPI 下无可见截断) */
+/* ---------- 半透明玻璃:由"当前主题自己的 bg 令牌"派生(v3 矢量平面纪律) ----------
+   透明窗口采样不到桌面像素,玻璃只是让桌面透光;透明度实测 68% 偏虚、压太低文字发虚,
+   78% 保读感。关键是不写死颜色:bg-1/bg-2 跟随主题,换主题时整窗同源换色,
+   不再出现"旧深蓝玻璃罩住新主题"的配色打架。内部组件只用 bg 令牌,不叠第二层玻璃。 */
+.app[data-hln-ui-root] {
+  --hln-ui-glass: color-mix(in srgb, var(--hln-ui-bg-1) 78%, transparent);
+  --hln-ui-panel-bg: color-mix(in srgb, var(--hln-ui-bg-1) 78%, transparent);
+  --hln-ui-glass-strong: color-mix(in srgb, var(--hln-ui-bg-2) 88%, transparent);
+  /* 引擎各主题 0 10px 30px/75-90% 的投影远超窗体 6px 透明边距,会被硬切成一圈怪异的黑边;
+     v3 纪律收紧为贴地小阴影,完整落在透明边距内(150% DPI 下无可见截断) */
   --hln-ui-shadow: 0 2px 9px rgb(0 0 0 / 32%);
+  --hln-ui-button-shadow: none;
+  --hln-ui-panel-highlight: none;
 }
 
 /* 背景动画层(tactical-grid 点阵漂移)限制在面板足迹内,不污染桌面边距 */
@@ -58,24 +61,42 @@ body,
   backdrop-filter: none;
 }
 
-/* ---------- 顶栏(激光刻线来自 data-hln-ui-bar) ---------- */
+/* ---------- 顶栏(轴刻线来自 data-hln-ui-bar):透明,面板即唯一玻璃层 ---------- */
 .app .head[data-hln-ui-bar] {
   min-height: 40px;
   flex: none;
   gap: 6px;
   padding: 0 10px;
-  background: color-mix(in srgb, var(--hln-ui-bg-0) 72%, transparent);
+  background: transparent;
   backdrop-filter: none;
 }
 
-/* 激光刻线左右巡航 */
+/* 顶栏轴刻线(v3 topbar-axis-scan):黄金 61.8% 渐变线沿轴巡航,无辉光 */
 .app .head[data-hln-ui-bar]::after {
-  animation: taskasion-laser 7s ease-in-out infinite alternate;
+  width: 61.8%;
+  height: 1.5px;
+  background: linear-gradient(
+    90deg,
+    var(--hln-ui-accent) 0%,
+    var(--hln-ui-accent-strong) 38.2%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  box-shadow: none;
+  animation: taskasion-axis-scan 4.2s ease-in-out infinite alternate;
 }
 
-@keyframes taskasion-laser {
-  from { left: 0; }
-  to { left: calc(100% - 140px); }
+@keyframes taskasion-axis-scan {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.68;
+    width: 38.2%;
+  }
+  100% {
+    background-position: 100% 50%;
+    opacity: 1;
+    width: 61.8%;
+  }
 }
 
 .app .brand {
@@ -247,7 +268,6 @@ body,
   padding: 0 6px;
   font-family: var(--hln-ui-font-technical);
   font-size: 10px;
-  color-scheme: dark;
 }
 
 .adder .adder-note {
@@ -302,7 +322,6 @@ body,
   font-family: var(--hln-ui-font-technical);
   font-size: 12px;
   letter-spacing: 0.04em;
-  color-scheme: dark;
 }
 
 .adder .add-btn {
@@ -587,7 +606,6 @@ li.task-row:hover .remind-btn:not([data-set]) {
   padding: 0 4px;
   font-family: var(--hln-ui-font-technical);
   font-size: 10px;
-  color-scheme: dark;
 }
 
 /* 提醒响了:整条亮一下(不弹窗、不抢焦点),5s 后由前端清掉状态 */
@@ -983,4 +1001,503 @@ li:hover .del { opacity: 0.75; }
   font-family: var(--hln-ui-font-technical);
   font-size: 10px;
   color: var(--hln-ui-accent);
+}
+
+/* ============================================================
+   KalciriteUI v3 动效与几何体系 —— 完整套用(本地实现,不触碰引擎)
+   v3 纪律:矢量平面(无辉光)/ 数学比例(黄金 38.2%/61.8%、等轴 30°)/
+   确定性动力学(160/280/420ms + spring 曲线)。
+   玻璃与配色全部由当前主题令牌派生,不写死颜色:换主题整窗同源换色,
+   不再出现透明度叠加发怪。
+   ============================================================ */
+
+/* ---- v3 动力学令牌:整体校准引擎时长/错峰,并引入 v3 spring 曲线 ---- */
+.app[data-hln-ui-root] {
+  --hln-ui-duration-fast: 160ms;
+  --hln-ui-duration-standard: 280ms;
+  --hln-ui-duration-slow: 420ms;
+  --hln-ui-motion-stagger: 28ms;
+  --hln-ui-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hln-ui-ease-spring: linear(
+    0, 0.009, 0.035 2.1%, 0.141, 0.281 6.7%, 0.723 12.9%, 0.938 16.7%,
+    1.017, 1.077, 1.121, 1.149 24.3%, 1.159, 1.163, 1.161, 1.154 29.9%,
+    1.129 32.8%, 1.051 39.6%, 1.017 43.1%, 0.991, 0.977 51%, 0.974 53.8%,
+    0.975 57.1%, 0.997 69.8%, 1.003 76.9%, 1
+  );
+}
+
+/* ---- 面板入场:v3 vector-construct,横轴一线构建成全平面 ---- */
+.app > .panel[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="vector-construct"] {
+  animation: taskasion-vector-construct 420ms var(--hln-ui-motion-ease) both;
+}
+
+/* ---- 角部注册刻线:右下 8px 主色直角(引擎十字注册系统的本地 v3 规格化)。
+   提权到 (0,4,0) 压过引擎 v2.3 十字准星 ::after(它会以 inset:0 + 四角渐变
+   与本规则合并,在面板左上角叠出一块 accent 色块),并清掉它的 inset/背景。 ---- */
+.app[data-hln-ui-root] > .panel[data-hln-ui-surface]::after {
+  inset: auto;
+  bottom: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  background: none;
+  border-bottom: 1.5px solid var(--hln-ui-accent);
+  border-right: 1.5px solid var(--hln-ui-accent);
+  opacity: 1;
+}
+
+/* ---- 条目入场三式(v3):普通行 8px 平面升入;目标行 X→Y 坐标锁定;
+        折叠组展开的行 iso-shift 等轴 30°(-16px, 9.24px)spring 落定。
+        fill 用 backwards 而非 both:终帧即自然态,不永久钉死 transform,
+        悬停 translateX/按压缩放才能生效 ---- */
+.app .task-row[data-hln-motion="item"][data-hln-motion-state="enter"][data-hln-motion-variant="data-stream"],
+.app .goal-row[data-hln-motion="item"][data-hln-motion-state="enter"][data-hln-motion-variant="data-stream"] {
+  animation: taskasion-item-enter 280ms var(--hln-ui-motion-ease) backwards;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * 28ms);
+}
+
+.app .goal-row[data-hln-motion="item"][data-hln-motion-state="enter"][data-hln-motion-variant="data-stream"] {
+  animation-name: taskasion-axis-snap;
+  animation-duration: 360ms;
+}
+
+.app .task-row[data-group-enter],
+.app .goal-row[data-group-enter] {
+  animation: taskasion-iso-shift 380ms var(--hln-ui-ease-spring) backwards;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * 28ms);
+}
+
+/* ---- 分组头:rail-draw 顶部轴轨先画、平面后落(v3) ---- */
+.app .section {
+  animation: taskasion-rail-draw 400ms var(--hln-ui-motion-ease) both;
+}
+
+/* ---- 视图/筛选切换:列表 page-shift 平移 18px;表单平面 clip-scan 61.8%/38.2% 斜切扫描(v3) ---- */
+.app .list {
+  animation: taskasion-page-shift 420ms var(--hln-ui-motion-ease) both;
+}
+
+.app .adder {
+  animation: taskasion-clip-scan 420ms var(--hln-ui-motion-ease) both;
+}
+
+/* 目标详情头:wipe-reveal 水平 Euclidean 平面扫出(v3) */
+.app .goal-head {
+  animation: taskasion-wipe-reveal 380ms var(--hln-ui-motion-ease) both;
+}
+
+/* ---- 空态:type-in 量化揭示;更新按钮出现:vertex-lock 弹簧落位 ---- */
+.app .empty {
+  animation: taskasion-type-in 340ms steps(10, end) both;
+}
+
+.app .upd-btn {
+  animation: taskasion-vertex-lock 450ms var(--hln-ui-ease-spring) backwards;
+}
+
+/* chips(优先级/AI 标):polygon-unfold 对角三角展开,行落位后接力;
+   tag 自带切角 clip-path,不参与(动画会覆盖它的永久形状) */
+.app .task-row .pri,
+.app .task-row .agent {
+  animation: taskasion-polygon-unfold 440ms var(--hln-ui-motion-ease) backwards;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * 28ms + 120ms);
+}
+
+/* 返回方块:golden-iris 八边光圈开启(phi 1.618, v3) */
+.app .goal-back {
+  animation: taskasion-golden-iris 460ms var(--hln-ui-motion-ease) 90ms backwards;
+}
+
+/* ---- v3 控件动力学:悬停上浮 1.5px + 底轴指示线从左展开,按压回正缩合 ---- */
+.app [data-hln-ui-control] {
+  position: relative;
+  transition:
+    background-color 200ms var(--hln-ui-motion-ease),
+    border-color 200ms var(--hln-ui-motion-ease),
+    color 200ms var(--hln-ui-motion-ease),
+    box-shadow 220ms var(--hln-ui-motion-ease),
+    transform 200ms var(--hln-ui-motion-ease);
+}
+
+.app [data-hln-ui-control]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transition: width 260ms var(--hln-ui-motion-ease);
+  pointer-events: none;
+}
+
+.app [data-hln-ui-control]:hover::after {
+  width: 100%;
+}
+
+.app [data-hln-ui-control]:hover {
+  transform: translateY(-1.5px);
+}
+
+.app [data-hln-ui-control]:active {
+  transform: translateY(0) scale(0.975);
+}
+
+/* 对角矢量光带:悬停时从左掠到右(v3 light-sweep,460ms);控件需裁剪 */
+.app [data-hln-ui-control],
+.app .icon-btn,
+.app .goal-back {
+  position: relative;
+  overflow: hidden;
+}
+
+.app [data-hln-ui-control]::before,
+.app .icon-btn::before,
+.app .goal-back::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: 0;
+  width: 36%;
+  height: 120%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--hln-ui-accent) 26%, transparent) 50%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-24deg);
+  transition: transform 460ms var(--hln-ui-motion-ease);
+  pointer-events: none;
+}
+
+.app [data-hln-ui-control]:hover::before,
+.app .icon-btn:hover::before,
+.app .goal-back:hover::before {
+  transform: translateX(340%) skewX(-24deg);
+}
+
+/* 主色/选中面:光带换白、底轴换底色,悬停推进到 accent-strong(v3) */
+.app [data-hln-ui-control][data-variant="primary"]::before,
+.app [data-hln-ui-control][data-active="true"]::before {
+  background: linear-gradient(90deg, transparent 0%, rgb(255 255 255 / 38%) 50%, transparent 100%);
+}
+
+.app [data-hln-ui-control][data-variant="primary"]::after,
+.app [data-hln-ui-control][data-active="true"]::after {
+  background: var(--hln-ui-bg-0);
+}
+
+.app [data-hln-ui-control][data-variant="primary"]:hover,
+.app [data-hln-ui-control][data-active="true"]:hover {
+  background: var(--hln-ui-accent-strong);
+  border-color: var(--hln-ui-accent-strong);
+}
+
+/* 分段钮:v3 明确悬停不平移,仅底色/文字反馈 */
+.app .segmented [data-hln-ui-control]:hover {
+  transform: none;
+}
+
+/* v3 字段:hover 边线预亮,focus 左缘内嵌 2px 亮线 */
+.app [data-hln-ui-field]:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 60%, var(--hln-ui-line));
+}
+
+.app [data-hln-ui-field]:focus {
+  outline: none;
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 85%, transparent);
+  box-shadow: inset 2px 0 0 var(--hln-ui-accent);
+}
+
+/* ---- meter 斜纹矢量流:填充带 -45° 流纹(v3 bar-stream 语言) ---- */
+.app .tactical-meter span {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--hln-ui-accent) 0 5px,
+    var(--hln-ui-accent-strong) 5px 10px
+  );
+  background-size: 14px 14px;
+  animation: taskasion-bar-stream 2.4s linear infinite;
+  transition: width 260ms var(--hln-ui-motion-ease);
+}
+
+/* ---- 悬停行:v3 spec/pipeline 悬停右移 3px ---- */
+.app li.task-row:hover,
+.app .goal-row:hover {
+  transform: translateX(3px);
+}
+
+/* ---- 角部刻线 hover 展开(8 → 14px,v3 showcase-card 规格) ---- */
+.app[data-hln-ui-root] > .panel[data-hln-ui-surface]::after {
+  transition: width 240ms var(--hln-ui-motion-ease), height 240ms var(--hln-ui-motion-ease);
+}
+
+.app[data-hln-ui-root] > .panel[data-hln-ui-surface]:hover::after {
+  width: 14px;
+  height: 14px;
+}
+
+/* ---- 换主题:面板颜色随令牌平滑过渡(行/迷你条自身已有 transition:all) ---- */
+.app > .panel {
+  transition:
+    background-color 320ms var(--hln-ui-motion-ease),
+    border-color 320ms var(--hln-ui-motion-ease),
+    color 320ms var(--hln-ui-motion-ease);
+}
+
+/* ---- v3 euclidean-grid 背景:phi 参考轴(38.2%/61.8%)+ 96px 网格 + 视界扫掠 ---- */
+.app[data-hln-ui-root][data-hln-bg-motion="euclidean-grid"]::before {
+  background-image:
+    linear-gradient(90deg, transparent 38.15%, color-mix(in srgb, var(--hln-ui-accent) 28%, transparent) 38.2%, transparent 38.25%),
+    linear-gradient(0deg, transparent 61.75%, color-mix(in srgb, var(--hln-ui-accent) 28%, transparent) 61.8%, transparent 61.85%),
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-accent) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--hln-ui-accent) 10%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 96px 96px, 96px 96px;
+  background-repeat: no-repeat, no-repeat, repeat, repeat;
+  opacity: 0.72;
+}
+
+.app[data-hln-ui-root][data-hln-bg-motion="euclidean-grid"]::after {
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 360px 100%;
+  background-repeat: no-repeat;
+  opacity: 0.68;
+  animation: taskasion-bg-axis-sweep 14s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes taskasion-bg-axis-sweep {
+  0% {
+    background-position: -360px 0;
+  }
+  100% {
+    background-position: calc(100% + 360px) 0;
+  }
+}
+
+/* ---- keyframes(v3 几何参数原样:黄金 38.2%/61.8%、等轴 9.24 = 16·sin30°) ---- */
+@keyframes taskasion-vector-construct {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.92);
+    clip-path: inset(49% 100% 49% 0);
+  }
+  45% {
+    opacity: 1;
+    transform: scaleX(1);
+    clip-path: inset(48% 0 48% 0);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes taskasion-item-enter {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskasion-axis-snap {
+  0% {
+    opacity: 0;
+    transform: translate3d(-14px, -10px, 0);
+  }
+  50% {
+    opacity: 1;
+    transform: translate3d(0, -10px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskasion-iso-shift {
+  0% {
+    opacity: 0;
+    transform: translate3d(-16px, 9.24px, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskasion-rail-draw {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% calc(100% - 2px) 0);
+  }
+  45% {
+    opacity: 1;
+    clip-path: inset(0 0 calc(100% - 2px) 0);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@keyframes taskasion-type-in {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translateX(0);
+  }
+}
+
+@keyframes taskasion-page-shift {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskasion-vertex-lock {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- v3 补齐的四个入场变体 + meter 流纹(几何参数原样) ---- */
+@keyframes taskasion-golden-iris {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+    clip-path: polygon(50% 38.2%, 61.8% 50%, 50% 61.8%, 38.2% 50%);
+  }
+  55% {
+    opacity: 1;
+    clip-path: polygon(14.6% 0%, 85.4% 0%, 100% 14.6%, 100% 85.4%, 85.4% 100%, 14.6% 100%, 0% 85.4%, 0% 14.6%);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 100% 100%, 100% 100%, 0% 100%, 0% 100%, 0% 0%);
+  }
+}
+
+@keyframes taskasion-polygon-unfold {
+  0% {
+    opacity: 0;
+    clip-path: polygon(0 0, 18% 0, 0 18%);
+  }
+  50% {
+    opacity: 1;
+    clip-path: polygon(0 0, 100% 0, 100% 38.2%, 38.2% 100%, 0 100%);
+  }
+  100% {
+    opacity: 1;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 100% 100%, 0 100%);
+  }
+}
+
+@keyframes taskasion-wipe-reveal {
+  0% {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    transform: translate3d(-6px, 0, 0);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes taskasion-clip-scan {
+  0% {
+    opacity: 0;
+    clip-path: polygon(0 0, 0 0, 0 100%, 0 100%);
+  }
+  50% {
+    opacity: 1;
+    clip-path: polygon(0 0, 61.8% 0, 38.2% 100%, 0 100%);
+  }
+  100% {
+    opacity: 1;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+  }
+}
+
+@keyframes taskasion-bar-stream {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 14px 0;
+  }
+}
+
+/* ---- v3 golden-spiral 背景:phi 谐振线 + 呼吸同心弧(目标详情视图) ---- */
+.app[data-hln-ui-root][data-hln-bg-motion="golden-spiral"]::before {
+  background-image:
+    linear-gradient(90deg, transparent 61.65%, color-mix(in srgb, var(--hln-ui-accent) 38%, transparent) 61.8%, transparent 61.95%),
+    linear-gradient(0deg, transparent 61.65%, color-mix(in srgb, var(--hln-ui-accent) 38%, transparent) 61.8%, transparent 61.95%),
+    linear-gradient(90deg, transparent 38.05%, color-mix(in srgb, var(--hln-ui-accent) 22%, transparent) 38.2%, transparent 38.35%),
+    linear-gradient(0deg, transparent 38.05%, color-mix(in srgb, var(--hln-ui-accent) 22%, transparent) 38.2%, transparent 38.35%);
+  background-repeat: no-repeat;
+  opacity: 0.82;
+}
+
+.app[data-hln-ui-root][data-hln-bg-motion="golden-spiral"]::after {
+  background-image:
+    radial-gradient(circle at 61.8% 38.2%, transparent 14%, color-mix(in srgb, var(--hln-ui-accent) 32%, transparent) 14.25%, transparent 14.6%),
+    radial-gradient(circle at 61.8% 38.2%, transparent 22.6%, color-mix(in srgb, var(--hln-ui-accent) 24%, transparent) 22.85%, transparent 23.2%),
+    radial-gradient(circle at 61.8% 38.2%, transparent 36.6%, color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 36.85%, transparent 37.2%),
+    radial-gradient(circle at 61.8% 38.2%, transparent 59.2%, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 59.45%, transparent 59.8%);
+  background-repeat: no-repeat;
+  transform-origin: 61.8% 38.2%;
+  opacity: 0.82;
+  animation: taskasion-bg-phi-harmonic 7s ease-in-out infinite alternate;
+}
+
+@keyframes taskasion-bg-phi-harmonic {
+  0% {
+    opacity: 0.58;
+    transform: scale(0.97);
+  }
+  100% {
+    opacity: 0.88;
+    transform: scale(1.03);
+  }
+}
+
+/* ---- 动效关怀(v3 同款) ---- */
+@media (prefers-reduced-motion: reduce) {
+  .app *,
+  .app *::before,
+  .app *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
