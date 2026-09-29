@@ -168,14 +168,12 @@ function WheelTime(props: {
 
 const PRI_CYCLE: Record<string, string> = { "": "p1", p1: "p2", p2: "p3", p3: "" };
 
-// KalciriteUI v3 的 9 套 Euclidean 主题(vendor/hln-ui-system-v2.3/hln-v3-themes.css);
+// KalciriteUI v3 的 6 套深色 Euclidean 主题(vendor/hln-ui-system-v2.3/hln-v3-themes.css);
+// 浅色三套(drafting-paper / bauhaus-grid / cartesian-emerald)在悬浮窗场景不和谐,已移除;
 // 托盘"更换主题"菜单与本地持久化共用这份清单
 const THEME_IDS = [
   "euclidean-cyan",
   "isometric-amber",
-  "drafting-paper",
-  "bauhaus-grid",
-  "cartesian-emerald",
   "graphite-polygon",
   "polar-cobalt",
   "hypercube-violet",
@@ -183,14 +181,17 @@ const THEME_IDS = [
 ] as const;
 const DEFAULT_THEME = "euclidean-cyan";
 
-// 旧 v2.3 主题名按色相族迁到 v3 对应主题,升级后观感连续
+// 旧主题名按色相族迁到 v3 对应主题,升级后观感连续(v2.3 六套 + beta.1/2 的浅色三套)
 const LEGACY_THEMES: Record<string, string> = {
   "abyss-aegir": "euclidean-cyan",
   arknights: "hypercube-violet",
   babel: "polar-cobalt",
   blacksteel: "graphite-polygon",
   endfield: "isometric-amber",
-  "monster-siren": "cartesian-emerald",
+  "monster-siren": "polar-cobalt",
+  "drafting-paper": "euclidean-cyan",
+  "bauhaus-grid": "euclidean-cyan",
+  "cartesian-emerald": "polar-cobalt",
 };
 
 // 分组折叠偏好:未完成/已完成(含目标页的已完成)各自记住展开状态,重启后保持

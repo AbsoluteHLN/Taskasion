@@ -223,15 +223,12 @@ fn main() {
             let toggle = MenuItem::with_id(app, "toggle", "显示 / 隐藏", true, None::<&str>)?;
             let update = MenuItem::with_id(app, "update", "检查更新", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "退出 Taskasion", true, None::<&str>)?;
-            // 更换主题子菜单:与 vendor/hln-ui-system-v2.3/hln-v3-themes.css 的 9 套
-            // v3 Euclidean 主题一致;选中后发 set-theme 事件给前端,
-            // 由前端换根节点 data-hln-theme 并持久化
-            let themes: [(&str, &str); 9] = [
+            // 更换主题子菜单:与 vendor/hln-ui-system-v2.3/hln-v3-themes.css 的 6 套
+            // 深色 Euclidean 主题一致(浅色三套在悬浮窗场景不和谐,已移除);
+            // 选中后发 set-theme 事件给前端,由前端换根节点 data-hln-theme 并持久化
+            let themes: [(&str, &str); 6] = [
                 ("euclidean-cyan", "Euclidean Cyan"),
                 ("isometric-amber", "Isometric Amber"),
-                ("drafting-paper", "Drafting Paper"),
-                ("bauhaus-grid", "Bauhaus Grid"),
-                ("cartesian-emerald", "Cartesian Emerald"),
                 ("graphite-polygon", "Graphite Polygon"),
                 ("polar-cobalt", "Polar Cobalt"),
                 ("hypercube-violet", "Hypercube Violet"),
