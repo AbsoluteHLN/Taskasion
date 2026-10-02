@@ -15,6 +15,7 @@ import {
   nowLocalTime,
   todayLocal,
   tomorrowLocal,
+  dayAfterLocal,
   type Goal,
   type Task,
 } from "./api";
@@ -168,6 +169,60 @@ function WheelTime(props: {
 
 const PRI_CYCLE: Record<string, string> = { "": "p1", p1: "p2", p2: "p3", p3: "" };
 
+// 行内日期编辑条:快捷(今天/明天/后天/清除)+ 原生日期输入(与添加栏同控件)。
+// 提交语义与提醒框一致:回车/失焦提交,Esc 取消恢复原值;快捷 chip 点击即提交。
+// chip 用 onMouseDown preventDefault 顶住 blur —— 否则失焦先把手下的编辑框拆了,点击落空。
+function DueEdit(props: { initial: string | null; onCommit: (v: string | null) => void; onCancel: () => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const latest = useRef(props);
+  latest.current = props;
+  return (
+    <span className="due-edit" onClick={(e) => e.stopPropagation()}>
+      {(
+        [
+          ["今天", todayLocal()],
+          ["明天", tomorrowLocal()],
+          ["后天", dayAfterLocal()],
+        ] as const
+      ).map(([label, v]) => (
+        <button
+          key={label}
+          type="button"
+          className="due-quick"
+          title={`改为 ${label}`}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => props.onCommit(v)}
+        >
+          {label}
+        </button>
+      ))}
+      <button
+        type="button"
+        className="due-quick due-clear"
+        title="清除日期(有提醒时一并清除)"
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => props.onCommit(null)}
+      >
+        清除
+      </button>
+      <input
+        ref={ref}
+        type="date"
+        className="due-date"
+        title="任意日期;回车或点击条外提交,Esc 取消"
+        autoFocus
+        defaultValue={props.initial ?? ""}
+        data-hln-ui-field
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          else if (e.key === "Escape") props.onCancel();
+        }}
+        onBlur={() => props.onCommit(ref.current?.value || null)}
+      />
+    </span>
+  );
+}
+
 // KalciriteUI v3 的 6 套深色 Euclidean 主题(vendor/hln-ui-system-v2.3/hln-v3-themes.css);
 // 浅色三套(drafting-paper / bauhaus-grid / cartesian-emerald)在悬浮窗场景不和谐,已移除;
 // 托盘"更换主题"菜单与本地持久化共用这份清单
@@ -240,6 +295,7 @@ export default function App() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
   const [editingRemindId, setEditingRemindId] = useState<string | null>(null);
+  const [editingDueId, setEditingDueId] = useState<string | null>(null);
   // 刚响过提醒的任务 id:短暂高亮,证明"是哪条在提醒"
   const [firedId, setFiredId] = useState<string | null>(null);
   // 更新控件状态:available/downloading → 常驻按钮;latest/error → 4s 后自动消失
@@ -410,6 +466,7 @@ export default function App() {
   // 刚被 blur 关闭的行内编辑框:同一击 click 会落在行上,短暂忽略防止关了又开(像卡死)
   const noteClosed = useRef<{ id: string; t: number } | null>(null);
   const titleClosed = useRef<{ id: string; t: number } | null>(null);
+  const dueClosed = useRef<{ id: string; t: number } | null>(null);
   // Esc 取消标记:输入框被卸载时若仍触发一次 blur,这里保证它不会顺手把内容存下去
   const cancelEdit = useRef(false);
 
@@ -460,6 +517,22 @@ export default function App() {
     if (v === (t.remind_time ?? "")) return;
     const patch: { remind_time: string | null; due?: string } = { remind_time: v || null };
     if (v && !t.due) patch.due = v > nowLocalTime() ? todayLocal() : tomorrowLocal();
+    await updateTask(t.id, patch);
+    await refresh();
+  };
+
+  // 日期:改日期时提醒时刻不动 —— 触发时刻由 due+remind_time 现算,自动跟到新的一天;
+  // 清除日期则连提醒一起清(没有日期的提醒无处触发,与添加栏"提醒必带日期"对齐)
+  const saveDue = async (t: Task, v: string | null) => {
+    dueClosed.current = { id: t.id, t: Date.now() };
+    setEditingDueId(null);
+    if (cancelEdit.current) {
+      cancelEdit.current = false;
+      return;
+    }
+    if (v === (t.due ?? null)) return;
+    const patch: { due: string | null; remind_time?: string | null } = { due: v };
+    if (v === null && t.remind_time) patch.remind_time = null;
     await updateTask(t.id, patch);
     await refresh();
   };
@@ -582,6 +655,7 @@ export default function App() {
     const editing = editingNoteId === t.id;
     const editingTitle = editingTitleId === t.id;
     const editingRemind = editingRemindId === t.id;
+    const editingDue = editingDueId === t.id;
     return (
       <li
         key={t.id}
@@ -593,11 +667,13 @@ export default function App() {
         data-fired={firedId === t.id ? "" : undefined}
         style={motionItem(idx)}
         onClick={() => {
-          // 标题/备注的编辑框刚因失焦关闭时,这一击不要再把编辑框打回来(像卡死)
+          // 标题/备注/日期的编辑框刚因失焦关闭时,这一击不要再把编辑框打回来(像卡死)
           const nc = noteClosed.current;
           if (nc && nc.id === t.id && Date.now() - nc.t < 250) return;
           const tc = titleClosed.current;
           if (tc && tc.id === t.id && Date.now() - tc.t < 250) return;
+          const dc = dueClosed.current;
+          if (dc && dc.id === t.id && Date.now() - dc.t < 250) return;
           setEditingTitleId(null);
           setEditingNoteId(t.id);
         }}
@@ -634,12 +710,31 @@ export default function App() {
         ) : (
           <MarqueeTitle text={t.title} onClick={startTitleEdit(t)} />
         )}
-        {d && (
-          <span className={`due${d.overdue ? " over" : ""}`}>
-            {d.text}
-            {d.overdue && <span className="mini-pop">{t.due?.slice(5)}</span>}
-          </span>
-        )}
+        {!t.done &&
+          (editingDue ? (
+            <DueEdit
+              initial={t.due}
+              onCommit={(v) => saveDue(t, v)}
+              onCancel={() => {
+                cancelEdit.current = true;
+                dueClosed.current = { id: t.id, t: Date.now() };
+                setEditingDueId(null);
+              }}
+            />
+          ) : (
+            // 日期 chip:点击进入行内编辑;无日期任务是幽灵态占位(悬停行才亮),完成行不显示
+            <button
+              className={`due${d?.overdue ? " over" : ""}${d ? "" : " unset"}`}
+              title={d ? "点击修改日期" : "设置日期"}
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingDueId(t.id);
+              }}
+            >
+              {d ? d.text : "日期"}
+              {d?.overdue && <span className="mini-pop">{t.due?.slice(5)}</span>}
+            </button>
+          ))}
         {!t.done &&
           (editingRemind ? (
             <WheelTime

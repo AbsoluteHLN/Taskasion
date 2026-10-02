@@ -529,11 +529,88 @@ li.done .note-line {
   /* 实测 10px CJK 在行盒内偏上 1~2 物理像素:布局级下移找齐(整设备像素吸附,不发虚) */
   position: relative;
   top: 1px;
+  /* chip 本是 span,现为可点按钮(行内编辑入口):抹掉 UA 按钮默认 */
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color var(--hln-ui-duration-fast) ease;
 }
 
 .due.over {
   color: var(--hln-ui-danger);
   font-weight: 700;
+}
+
+.due:hover {
+  color: var(--hln-ui-accent);
+}
+
+.due.over:hover {
+  color: var(--hln-ui-danger);
+}
+
+/* 无日期任务:幽灵 chip 占位(与幽灵 ◷/PRI 同语法),悬停行才亮,点开即设日期 */
+.due.unset {
+  color: var(--hln-ui-text-faint);
+  opacity: 0.4;
+}
+
+li.task-row:hover .due.unset {
+  opacity: 0.9;
+}
+
+/* 行内日期编辑条:占用第二行(行 flex-wrap 自动换行)——标题保持可见,
+   编辑条与正文左对齐,点谁改谁一目了然;入场自上滑入 */
+.due-edit {
+  flex: 1 1 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 0 2px 23px; /* 16px 勾选框 + 5px 列距:与标题左缘对齐 */
+  border-top: 1px dashed color-mix(in srgb, var(--hln-ui-line) 70%, transparent);
+  animation: taskasion-due-in 160ms ease backwards;
+}
+
+@keyframes taskasion-due-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.due-quick {
+  flex: none;
+  padding: 1px 5px;
+  background: transparent;
+  border: 1px solid var(--hln-ui-line);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--hln-ui-text-muted);
+  cursor: pointer;
+  transition: all var(--hln-ui-duration-fast) ease;
+}
+
+.due-quick:hover {
+  color: var(--hln-ui-accent);
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, transparent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent);
+}
+
+.due-clear:hover {
+  color: var(--hln-ui-danger);
+  border-color: color-mix(in srgb, var(--hln-ui-danger) 55%, transparent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--hln-ui-danger) 30%, transparent);
+}
+
+.due-edit .due-date {
+  margin-left: auto; /* 任意日期靠行右缘:快捷在左、精确在右,两端不打架 */
+  width: 104px;
+  min-height: 20px;
+  padding: 0 4px;
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
 }
 
 /* 悬停小面板:超时日期与提醒时刻收进 ⚠/◷ 图标,悬停才弹出;
