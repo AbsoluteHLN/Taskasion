@@ -538,8 +538,16 @@ li.done .note-line {
 }
 
 .due.over {
+  /* 图标版本:flex 垂直居中 + 撤掉为 CJK 文本调的 1px 下移(SVG 几何居中,不再需要) */
+  display: inline-flex;
+  align-items: center;
+  top: 0;
   color: var(--hln-ui-danger);
   font-weight: 700;
+}
+
+.warn-ico {
+  display: block;
 }
 
 .due:hover {
@@ -560,53 +568,10 @@ li.task-row:hover .due.unset {
   opacity: 0.9;
 }
 
-/* 行内日期编辑条:占用第二行(行 flex-wrap 自动换行)——标题保持可见,
-   编辑条与正文左对齐,点谁改谁一目了然;入场自上滑入 */
-.due-edit {
-  flex: 1 1 100%;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 0 2px 23px; /* 16px 勾选框 + 5px 列距:与标题左缘对齐 */
-  border-top: 1px dashed color-mix(in srgb, var(--hln-ui-line) 70%, transparent);
-  animation: taskasion-due-in 160ms ease backwards;
-}
-
-@keyframes taskasion-due-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-.due-quick {
+/* 原地改日期:与提醒框(.remind-edit)同款轻量输入框,顶替 chip 原位,行高不变 */
+.due-input {
   flex: none;
-  padding: 1px 5px;
-  background: transparent;
-  border: 1px solid var(--hln-ui-line);
-  font-family: var(--hln-ui-font-technical);
-  font-size: 10px;
-  line-height: 1.4;
-  color: var(--hln-ui-text-muted);
-  cursor: pointer;
-  transition: all var(--hln-ui-duration-fast) ease;
-}
-
-.due-quick:hover {
-  color: var(--hln-ui-accent);
-  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, transparent);
-  box-shadow: 0 0 7px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent);
-}
-
-.due-clear:hover {
-  color: var(--hln-ui-danger);
-  border-color: color-mix(in srgb, var(--hln-ui-danger) 55%, transparent);
-  box-shadow: 0 0 7px color-mix(in srgb, var(--hln-ui-danger) 30%, transparent);
-}
-
-.due-edit .due-date {
-  margin-left: auto; /* 任意日期靠行右缘:快捷在左、精确在右,两端不打架 */
-  width: 104px;
+  width: 92px;
   min-height: 20px;
   padding: 0 4px;
   font-family: var(--hln-ui-font-technical);

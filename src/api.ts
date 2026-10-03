@@ -84,12 +84,6 @@ export function tomorrowLocal(): string {
   return new Date(d.getTime() + 86400000 - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
-/** 后天(本地时区)的 YYYY-MM-DD。 */
-export function dayAfterLocal(): string {
-  const d = new Date();
-  return new Date(d.getTime() + 2 * 86400000 - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-}
-
 /** 当前本地 HH:MM。 */
 export function nowLocalTime(): string {
   const d = new Date();

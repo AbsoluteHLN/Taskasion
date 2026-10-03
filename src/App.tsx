@@ -15,17 +15,28 @@ import {
   nowLocalTime,
   todayLocal,
   tomorrowLocal,
-  dayAfterLocal,
   type Goal,
   type Task,
 } from "./api";
 
 function dueLabel(due: string): { text: string; overdue: boolean } {
   const today = todayLocal();
-  // 超时只留红色 ⚠,具体日期收进悬停小面板(行内空间留给内容)
-  if (due < today) return { text: "⚠", overdue: true };
+  // 超时只留红色警告标(渲染成内联 SVG,见行内 overdue 分支),具体日期收进悬停小面板
+  if (due < today) return { text: "!", overdue: true };
   if (due === today) return { text: "今天", overdue: false };
   return { text: due.slice(5), overdue: false };
+}
+
+// 过期警告图标:字符 ⚠ 的字形来自符号字体回退,基线与 CJK/数字不一致会发飘,
+// 改用几何绘制的三角叹号(取色 currentColor,尺寸钉死,天然随行盒居中)
+function WarnIcon() {
+  return (
+    <svg className="warn-ico" width="10" height="9" viewBox="0 0 10 9" aria-hidden="true">
+      <path d="M5 0.6 L9.4 8.4 H0.6 Z" fill="none" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="miter" />
+      <rect x="4.45" y="3.1" width="1.2" height="3.1" fill="currentColor" />
+      <rect x="4.4" y="6.9" width="1.2" height="1.2" fill="currentColor" />
+    </svg>
+  );
 }
 
 const pct = (p: { total: number; done: number }) =>
@@ -169,57 +180,81 @@ function WheelTime(props: {
 
 const PRI_CYCLE: Record<string, string> = { "": "p1", p1: "p2", p2: "p3", p3: "" };
 
-// 行内日期编辑条:快捷(今天/明天/后天/清除)+ 原生日期输入(与添加栏同控件)。
-// 提交语义与提醒框一致:回车/失焦提交,Esc 取消恢复原值;快捷 chip 点击即提交。
-// chip 用 onMouseDown preventDefault 顶住 blur —— 否则失焦先把手下的编辑框拆了,点击落空。
-function DueEdit(props: { initial: string | null; onCommit: (v: string | null) => void; onCancel: () => void }) {
+// "10-05" / "10.5" / "10月5日" / "2026-10-05" / "2026/10/5" / "今天|明天|后天" → 本地 YYYY-MM-DD;
+// 空串 → ""(删除日期);无法解析或非法(如 2 月 30 日)→ null(按取消处理)
+const pad2 = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+
+function normalizeDate(raw: string): string | "" | null {
+  const v = raw.trim();
+  if (!v) return "";
+  const presets: Record<string, number> = { 今天: 0, 明天: 1, 后天: 2 };
+  const now = new Date();
+  const fromOffset = (days: number) => {
+    const dt = new Date(now.getFullYear(), now.getMonth(), now.getDate() + days);
+    return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+  };
+  if (v in presets) return fromOffset(presets[v]);
+  const hit = v.match(/^(?:(\d{4})[-/.年])?(\d{1,2})[-/.月](\d{1,2})日?$/);
+  if (!hit) return null;
+  const y = hit[1] ? Number(hit[1]) : now.getFullYear();
+  const m = Number(hit[2]);
+  const d = Number(hit[3]);
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const dt = new Date(y, m - 1, d);
+  if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+
+// YYYY-MM-DD ± days(本地历法,跨月/跨年自然进位)
+function nudgeDate(value: string, days: number): string {
+  const [y, m, d] = value.split("-").map((x) => parseInt(x, 10));
+  if ([y, m, d].some(Number.isNaN)) return value;
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+}
+
+// 日期滚轮输入框:提醒 WheelTime 的日期版 —— 原地一个轻量输入框,行高不变。
+// 键入 今天/明天/后天/10-05/2026-10-05,滚轮上下 ±1 天;回车/失焦提交(自动补年、拒绝非法日期),
+// Esc 取消恢复原值;清空并离开 = 删除日期(提醒随之失效,与提醒框"清空即删"对称)。
+function WheelDate(props: { className: string; title: string; initial: string | null; onCommit: (v: string | null) => void; onCancel: () => void }) {
   const ref = useRef<HTMLInputElement>(null);
   const latest = useRef(props);
   latest.current = props;
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cur = el.value || latest.current.initial || todayLocal();
+      el.value = nudgeDate(cur.slice(0, 10), e.deltaY < 0 ? 1 : -1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  const commit = () => {
+    const v = normalizeDate(ref.current?.value ?? "");
+    if (v === null) latest.current.onCancel();
+    else latest.current.onCommit(v === "" ? null : v);
+  };
   return (
-    <span className="due-edit" onClick={(e) => e.stopPropagation()}>
-      {(
-        [
-          ["今天", todayLocal()],
-          ["明天", tomorrowLocal()],
-          ["后天", dayAfterLocal()],
-        ] as const
-      ).map(([label, v]) => (
-        <button
-          key={label}
-          type="button"
-          className="due-quick"
-          title={`改为 ${label}`}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={() => props.onCommit(v)}
-        >
-          {label}
-        </button>
-      ))}
-      <button
-        type="button"
-        className="due-quick due-clear"
-        title="清除日期(有提醒时一并清除)"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => props.onCommit(null)}
-      >
-        清除
-      </button>
-      <input
-        ref={ref}
-        type="date"
-        className="due-date"
-        title="任意日期;回车或点击条外提交,Esc 取消"
-        autoFocus
-        defaultValue={props.initial ?? ""}
-        data-hln-ui-field
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-          else if (e.key === "Escape") props.onCancel();
-        }}
-        onBlur={() => props.onCommit(ref.current?.value || null)}
-      />
-    </span>
+    <input
+      ref={ref}
+      type="text"
+      maxLength={10}
+      placeholder="10-05"
+      className={props.className}
+      title={props.title}
+      autoFocus
+      defaultValue={props.initial ?? ""}
+      data-hln-ui-field
+      onClick={(e) => e.stopPropagation()}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") latest.current.onCancel();
+      }}
+      onBlur={commit}
+    />
   );
 }
 
@@ -712,7 +747,9 @@ export default function App() {
         )}
         {!t.done &&
           (editingDue ? (
-            <DueEdit
+            <WheelDate
+              className="due-input"
+              title="日期:键入 今天/明天/后天/10-05/2026-10-05;框内滚轮上下 ±1 天;清空并离开 = 删除日期(提醒一并清)"
               initial={t.due}
               onCommit={(v) => saveDue(t, v)}
               onCancel={() => {
@@ -731,7 +768,7 @@ export default function App() {
                 setEditingDueId(t.id);
               }}
             >
-              {d ? d.text : "日期"}
+              {d?.overdue ? <WarnIcon /> : d?.text}
               {d?.overdue && <span className="mini-pop">{t.due?.slice(5)}</span>}
             </button>
           ))}
